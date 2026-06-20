@@ -10,202 +10,7 @@ servindo como material de referência e estudo.
 **Branch:** feature/setup_do_projeto
 **Objetivo:** Configurar o ambiente de desenvolvimento e estruturar o projeto.
 
----
-
-### 1.1 Mapeamento do Ambiente
-
-Antes de qualquer instalação, verificamos o que já estava disponível na máquina:
-
-```bash
-python --version   # Python 3.12.9
-pip --version      # pip 26.0.1
-node -v            # v22.22.3
-npm -v             # 10.9.8
-git --version      # git version 2.51.0.windows.1
-```
-
-**Resultado:** Python, Node.js, npm e Git já estavam instalados e prontos para uso.
-
----
-
-### 1.2 Versões Escolhidas
-
-Antes de instalar qualquer biblioteca, consultamos as versões disponíveis:
-
-```bash
-python -m pip index versions fastapi
-python -m pip index versions pytest
-python -m pip index versions uvicorn
-```
-
-**Critério de escolha:** versões LTS estáveis, com maior número de patches aplicados,
-compatíveis entre si e com Python 3.12.9.
-
-| Biblioteca | Versão escolhida | Motivo |
-|---|---|---|
-| FastAPI | 0.115.14 | Série mais longa e testada |
-| Uvicorn | 0.34.3 | Última da série 0.34.x |
-| Pytest | 8.3.5 | Última da série 8.3.x |
-
----
-
-### 1.3 Ambiente Virtual (venv)
-
-**O que é:** uma pasta isolada com uma instalação independente do Python e suas
-bibliotecas, separada do Python instalado no sistema.
-
-**Por que usar:** evita conflitos entre projetos diferentes que usam versões
-distintas das mesmas bibliotecas.
-
-**Comandos utilizados:**
-
-```bash
-# Criar o ambiente virtual
-python -m venv venv
-
-# Ativar o ambiente virtual (Windows / Git Bash)
-source venv/Scripts/activate
-```
-
-> Quando ativo, o terminal exibe `(venv)` no início da linha.
-
----
-
-### 1.4 Instalação das Dependências
-
-Com o ambiente virtual ativo, instalamos as bibliotecas com versões exatas:
-
-```bash
-pip install fastapi==0.115.14 uvicorn==0.34.3 pytest==8.3.5
-```
-
-O FastAPI trouxe automaticamente as seguintes dependências:
-
-| Biblioteca | Função |
-|---|---|
-| starlette | base sobre a qual o FastAPI é construído |
-| pydantic | valida os dados que a API recebe e envia |
-| anyio | gerencia operações assíncronas |
-| click | permite rodar o uvicorn pela linha de comando |
-| h11 | protocolo HTTP em Python puro |
-| colorama | colore a saída do terminal no Windows |
-
----
-
-### 1.5 Geração do requirements.txt
-
-O `requirements.txt` registra todas as dependências com versões exatas,
-permitindo que qualquer pessoa recrie o ambiente idêntico.
-
-```bash
-pip freeze > requirements.txt
-```
-
-**Conteúdo gerado:**
-
-```
-annotated-types==0.7.0
-anyio==4.13.0
-click==8.4.1
-colorama==0.4.6
-fastapi==0.115.14
-h11==0.16.0
-idna==3.18
-iniconfig==2.3.0
-packaging==26.2
-pluggy==1.6.0
-pydantic==2.13.4
-pydantic_core==2.46.4
-pytest==8.3.5
-starlette==0.46.2
-typing-inspection==0.4.2
-typing_extensions==4.15.0
-uvicorn==0.34.3
-```
-
-> Para instalar em outra máquina: `pip install -r requirements.txt`
-
----
-
-### 1.6 Estrutura de Pastas
-
-Criamos a estrutura seguindo a Arquitetura em Camadas definida no guia do projeto:
-
-```bash
-mkdir -p app/routes app/services app/models tests
-```
-
-**Estrutura criada:**
-
-```
-task_manager/
-├── app/
-│   ├── models/     → representação dos dados
-│   ├── routes/     → endpoints da API
-│   └── services/   → regras de negócio
-└── tests/          → testes automatizados
-```
-
----
-
-### 1.7 Arquivos __init__.py
-
-**O que são:** arquivos vazios que dizem ao Python que aquela pasta é um módulo
-e pode ser importado por outros arquivos do projeto.
-
-```bash
-touch app/__init__.py
-touch app/models/__init__.py
-touch app/routes/__init__.py
-touch app/services/__init__.py
-touch tests/__init__.py
-```
-
----
-
-### 1.8 Configuração do .gitignore
-
-**O que é:** arquivo que instrui o Git a ignorar determinados arquivos e pastas,
-evitando que sejam enviados ao GitHub.
-
-```bash
-echo "venv/
-__pycache__/
-*.pyc
-.env" > .gitignore
-```
-
-**O que ignoramos e por quê:**
-
-| Entrada | Motivo |
-|---|---|
-| `venv/` | Pesado e cada desenvolvedor cria o seu próprio |
-| `__pycache__/` | Arquivos temporários gerados automaticamente pelo Python |
-| `*.pyc` | Arquivos compilados do Python, também temporários |
-| `.env` | Guardará futuramente informações sensíveis |
-
----
-
-### 1.9 Primeiro Commit e Push
-
-Verificamos o que seria enviado antes de commitar:
-
-```bash
-git add .
-git status
-```
-
-Realizamos o commit e enviamos para o GitHub:
-
-```bash
-git commit -m "JLA - feat: setup inicial do projeto - estrutura de pastas, dependências e gitignore"
-git push origin feature/setup_do_projeto
-```
-
-**Resultado:** branch `feature/setup_do_projeto` criada no GitHub com 8 arquivos,
-101 inserções.
-
----
+*(conteúdo já registrado anteriormente — ver histórico do repositório)*
 
 ### Resumo da Sessão 1
 
@@ -223,7 +28,237 @@ git push origin feature/setup_do_projeto
 
 ---
 
-## Sessão 2 — A definir
+## Sessão 2 — Primeira Rota da API (Tarefas)
 
-**Objetivo:** Criar o `main.py` e a primeira rota da API.
+**Branch:** feature/backend
+**Objetivo:** Criar o schema de Tarefa, as primeiras rotas (GET e POST) e conectá-las ao main.py.
 
+---
+
+### 2.1 Modelagem da Tarefa
+
+Antes de codar, definimos os campos da entidade `Tarefa`:
+
+| Campo | Tipo | Obrigatório? | Descrição |
+|---|---|---|---|
+| `id` | inteiro | Gerado automaticamente | Identificador único |
+| `titulo` | texto | Sim | Nome curto da tarefa |
+| `descricao` | texto | Não | Detalhes adicionais |
+| `status` | enum | Sim, com valor padrão | pendente, em_andamento, concluida |
+| `prioridade` | enum | Sim, com valor padrão | baixa, media, alta |
+| `data_criacao` | data/hora | Gerado automaticamente | Quando a tarefa foi criada |
+| `data_vencimento` | data | Não | Prazo opcional para conclusão |
+
+---
+
+### 2.2 Criação do Schema (Pydantic)
+
+**Conceito: Pydantic e Schemas** — o Pydantic valida e estrutura os dados que
+entram e saem da API. Um schema define o formato esperado desses dados.
+
+Arquivo criado: `app/models/tarefa.py`
+
+```python
+from datetime import date, datetime
+from enum import Enum
+
+from pydantic import BaseModel
+
+
+class StatusTarefa(str, Enum):
+    pendente = "pendente"
+    em_andamento = "em_andamento"
+    concluida = "concluida"
+
+
+class PrioridadeTarefa(str, Enum):
+    baixa = "baixa"
+    media = "media"
+    alta = "alta"
+
+
+class Tarefa(BaseModel):
+    id: int
+    titulo: str
+    descricao: str | None = None
+    status: StatusTarefa = StatusTarefa.pendente
+    prioridade: PrioridadeTarefa = PrioridadeTarefa.media
+    data_criacao: datetime
+    data_vencimento: date | None = None
+```
+
+**Erro encontrado e corrigido:** as linhas `status: StatusTarefa.pendente` e
+`prioridade: PrioridadeTarefa.media` estavam sem o sinal `=`, fazendo o Python
+interpretar um valor do Enum como se fosse o próprio tipo. Correção: declarar
+o tipo antes do `=` e o valor padrão depois (`status: StatusTarefa = StatusTarefa.pendente`).
+
+**Validação do arquivo (sem rodar o servidor inteiro):**
+
+```bash
+python -c 'from app.models.tarefa import Tarefa; print("Schema carregado com sucesso!")'
+```
+
+> Nota: usamos aspas simples por fora e duplas por dentro para evitar o erro
+> `event not found` do Bash, causado pelo `!` dentro de aspas duplas (history expansion).
+
+---
+
+### 2.3 Criação das Rotas
+
+**Conceito: Router (Roteador) no FastAPI** — agrupa rotas relacionadas em um
+arquivo separado, mantendo a organização por camada técnica (routes/services/models)
+e por domínio dentro de cada camada (um arquivo por assunto, ex: tarefas.py).
+
+Arquivo criado: `app/routes/tarefas.py`
+
+```python
+from datetime import datetime
+
+from fastapi import APIRouter
+
+from app.models.tarefa import Tarefa
+
+router = APIRouter(prefix="/v1/tarefas", tags=["Tarefas"])
+
+tarefas_db: list[Tarefa] = []
+
+
+@router.get("/")
+def listar_tarefas():
+    return tarefas_db
+
+
+@router.post("/")
+def criar_tarefa(tarefa: Tarefa):
+    tarefa.data_criacao = datetime.now()
+    tarefas_db.append(tarefa)
+    return tarefa
+```
+
+**Importante:** o `prefix` definido no `APIRouter()` já se aplica
+automaticamente a todas as rotas declaradas dentro dele. Por isso os decorators
+usam apenas `"/"` — usar `@router.post("/v1/tarefas")` aqui causaria duplicação
+do caminho (`/v1/tarefas/v1/tarefas`).
+
+> `tarefas_db` é uma lista Python em memória — simula um banco de dados
+> temporariamente. Os dados se perdem ao reiniciar o servidor. O SQLite será
+> conectado em uma sessão futura.
+
+---
+
+### 2.4 Conectar as Rotas ao main.py
+
+O `main.py` precisa importar e registrar o router para que o FastAPI saiba
+que essas rotas existem.
+
+```python
+from fastapi import FastAPI
+
+from app.routes import tarefas
+
+app = FastAPI(title="Task Manager API")
+
+app.include_router(tarefas.router)
+
+
+@app.get("/")
+def read_root():
+    return {"message": "Task Manager API está no ar!"}
+```
+
+**Erro encontrado:** o `main.py` ficou sem essas duas linhas (`from app.routes
+import tarefas` e `app.include_router(tarefas.router)`) durante a edição —
+por isso só a rota `/` aparecia no Swagger, e as rotas de tarefas pareciam não
+existir. Diagnosticado comparando o conteúdo real do `main.py` com o esperado.
+
+---
+
+### 2.5 Rodando e Testando a API
+
+```bash
+uvicorn main:app --reload
+```
+
+- `uvicorn` → servidor que executa a API
+- `main:app` → "no arquivo main.py, use o objeto chamado app"
+- `--reload` → reinicia automaticamente ao detectar mudanças no código
+
+Testado via Swagger (`http://127.0.0.1:8000/docs`):
+- `GET /v1/tarefas/` → lista as tarefas em memória
+- `POST /v1/tarefas/` → cria uma nova tarefa
+
+---
+
+### 2.6 Problemas Resolvidos Nesta Sessão
+
+| Problema | Causa | Solução |
+|---|---|---|
+| `Import "fastapi" could not be resolved` no VS Code | Pylance usando interpretador Python diferente do venv | `Ctrl+Shift+P` → `Python: Select Interpreter` → apontar para `venv\Scripts\python.exe` |
+| `bash: !": event not found` | History expansion do Bash interpretando `!` dentro de aspas duplas | Usar aspas simples por fora, duplas por dentro |
+| Rota POST não aparecia corretamente no Swagger | Path duplicado (`@router.post("/v1/tarefas")` dentro de um router que já tem esse prefix) | Usar apenas `"/"` no decorator |
+| Apenas a rota `/` aparecia no Swagger | `main.py` sem o `include_router` | Reescrever `main.py` com o import e o `include_router` |
+| `PydanticUserError: not fully defined` | Enum usado como tipo sem o `=` (`status: StatusTarefa.pendente` em vez de `status: StatusTarefa = StatusTarefa.pendente`) | Corrigir a sintaxe de tipo + valor padrão |
+| Edições feitas pelo terminal não apareciam no arquivo | Conflito entre o conteúdo em disco (escrito pelo terminal) e a versão aberta no VS Code | Fechar a aba antes de sobrescrever via terminal, ou editar direto no editor e salvar com `Ctrl+S` |
+
+---
+
+### 2.7 Arquitetura Atual do Projeto
+
+```
+task_manager/
+├── app/
+│   ├── routes/
+│   │   └── tarefas.py     → GET e POST de tarefas (rotas = método HTTP + path)
+│   ├── services/          → ainda vazio, sem lógica de negócio implementada
+│   ├── models/
+│   │   └── tarefa.py      → Enums (StatusTarefa, PrioridadeTarefa) + schema Tarefa
+│   └── __init__.py
+├── tests/
+├── main.py                → ponto de entrada, conecta os routers
+├── requirements.txt
+├── README.md
+└── GUIDE.md
+```
+
+**Fluxo atual de uma requisição:**
+
+1. Cliente (Swagger/navegador) envia requisição HTTP para `/v1/tarefas/`
+2. `routes/tarefas.py` recebe e processa diretamente (ainda sem passar por `services/`)
+3. Os dados são validados pelo schema `Tarefa` em `models/tarefa.py`
+4. A resposta é devolvida — armazenamento ainda em lista Python (memória), sem banco de dados real
+
+**Nota de nomenclatura — domínio vs camada:**
+Diferente de frameworks que organizam por domínio completo (uma pasta só para
+"cadastro", outra para "vendas", cada uma com suas próprias rotas/regras/dados
+dentro), aqui organizamos primeiro por **camada técnica** (routes/services/models)
+e, dentro de cada camada, por **domínio** (um arquivo por assunto). Quando
+surgir um novo domínio (ex: usuários), have um `usuarios.py` em cada uma das
+três pastas.
+
+**Nota — Schema (Pydantic) vs Tabela de banco de dados:**
+O que existe hoje em `models/tarefa.py` é um schema que define o contrato de
+dados da API, não uma tabela de banco real. Quando o SQLite for conectado,
+provavelmente teremos dois modelos distintos: um para a API (schema) e outro
+para a persistência (tabela) — conceito a ser detalhado na sessão de conexão
+com o banco de dados.
+
+---
+
+### Resumo da Sessão 2
+
+| Atividade | Status |
+|---|---|
+| Modelagem da entidade Tarefa | ✅ |
+| Criação do schema Pydantic (tarefa.py) | ✅ |
+| Criação das rotas GET e POST (tarefas.py) | ✅ |
+| Conexão das rotas ao main.py | ✅ |
+| Testes manuais via Swagger | ✅ |
+| Resolução de 6 problemas práticos (ver tabela 2.6) | ✅ |
+| Revisão conceitual: rotas, schema vs tabela, organização por camada | ✅ |
+
+---
+
+## Sessão 3 — A definir
+
+**Objetivo sugerido:** Conectar o SQLite, criar o modelo de persistência e
+implementar a camada de serviços (services/) com a lógica de negócio.
