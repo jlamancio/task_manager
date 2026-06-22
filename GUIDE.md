@@ -8,11 +8,8 @@ servindo como material de referência e estudo.
 ## Sessão 1 — Setup do Ambiente
 **Data:** 15/06/2025
 **Branch:** feature/setup_do_projeto
-**Objetivo:** Configurar o ambiente de desenvolvimento e estruturar o projeto.
 
-*(conteúdo já registrado anteriormente — ver histórico do repositório)*
-
-### Resumo da Sessão 1
+### Resumo
 
 | Atividade | Status |
 |---|---|
@@ -29,236 +26,261 @@ servindo como material de referência e estudo.
 ---
 
 ## Sessão 2 — Primeira Rota da API (Tarefas)
-
 **Branch:** feature/backend
-**Objetivo:** Criar o schema de Tarefa, as primeiras rotas (GET e POST) e conectá-las ao main.py.
+
+Modelagem da entidade Tarefa, criação do schema Pydantic (`app/models/tarefa.py`)
+e das rotas GET/POST (`app/routes/tarefas.py`), conectadas ao `main.py`.
+Armazenamento temporário em lista Python (`tarefas_db = []`), sem persistência real.
+
+**Problemas resolvidos:** erro de import no VS Code (interpretador errado),
+`event not found` no Bash (`!` dentro de aspas duplas), rota duplicada por
+prefixo repetido, rotas não aparecendo por falta de `include_router`, e erro de
+sintaxe no Enum (`status: StatusTarefa.pendente` sem o `=`).
+
+### Resumo
+
+| Atividade | Status |
+|---|---|
+| Modelagem da entidade Tarefa | ✅ |
+| Criação do schema Pydantic | ✅ |
+| Criação das rotas GET e POST | ✅ |
+| Conexão das rotas ao main.py | ✅ |
+| Testes manuais via Swagger | ✅ |
 
 ---
 
-### 2.1 Modelagem da Tarefa
-
-Antes de codar, definimos os campos da entidade `Tarefa`:
-
-| Campo | Tipo | Obrigatório? | Descrição |
-|---|---|---|---|
-| `id` | inteiro | Gerado automaticamente | Identificador único |
-| `titulo` | texto | Sim | Nome curto da tarefa |
-| `descricao` | texto | Não | Detalhes adicionais |
-| `status` | enum | Sim, com valor padrão | pendente, em_andamento, concluida |
-| `prioridade` | enum | Sim, com valor padrão | baixa, media, alta |
-| `data_criacao` | data/hora | Gerado automaticamente | Quando a tarefa foi criada |
-| `data_vencimento` | data | Não | Prazo opcional para conclusão |
+## Sessão 3 — Conexão com SQLite via SQLAlchemy
+**Branch:** feature/backend
 
 ---
 
-### 2.2 Criação do Schema (Pydantic)
+### 3.1 Conceito-chave: Schema vs Modelo ORM
 
-**Conceito: Pydantic e Schemas** — o Pydantic valida e estrutura os dados que
-entram e saem da API. Um schema define o formato esperado desses dados.
+Antes de codar, estabelecemos a diferença entre dois modelos que representam
+a mesma entidade (Tarefa), mas com papéis distintos:
 
-Arquivo criado: `app/models/tarefa.py`
+| Modelo | Onde vive | Papel | Biblioteca | Quando existe |
+|---|---|---|---|---|
+| **Schema** | `app/models/tarefa.py` | Define o formato dos dados da **API** | Pydantic | Só durante a requisição |
+| **Modelo ORM** | `app/models/tarefa_db.py` | Define a **tabela real** no banco | SQLAlchemy | Sempre — é a tabela persistida |
 
-```python
-from datetime import date, datetime
-from enum import Enum
+**Analogia usada:** o schema é como a planta arquitetônica de uma casa (mostra
+o layout para quem visita); o modelo ORM é a fundação e estrutura real (existe
+independente de haver visita ou não). Mudar a "pintura" (schema) não exige
+reforçar a "fundação" (tabela), e vice-versa.
 
-from pydantic import BaseModel
+---
 
+### 3.2 Instalação do SQLAlchemy
 
-class StatusTarefa(str, Enum):
-    pendente = "pendente"
-    em_andamento = "em_andamento"
-    concluida = "concluida"
+Consultamos a versão estável antes de instalar, seguindo o mesmo critério já
+usado para FastAPI, Uvicorn e Pytest (série madura, bem testada).
 
-
-class PrioridadeTarefa(str, Enum):
-    baixa = "baixa"
-    media = "media"
-    alta = "alta"
-
-
-class Tarefa(BaseModel):
-    id: int
-    titulo: str
-    descricao: str | None = None
-    status: StatusTarefa = StatusTarefa.pendente
-    prioridade: PrioridadeTarefa = PrioridadeTarefa.media
-    data_criacao: datetime
-    data_vencimento: date | None = None
-```
-
-**Erro encontrado e corrigido:** as linhas `status: StatusTarefa.pendente` e
-`prioridade: PrioridadeTarefa.media` estavam sem o sinal `=`, fazendo o Python
-interpretar um valor do Enum como se fosse o próprio tipo. Correção: declarar
-o tipo antes do `=` e o valor padrão depois (`status: StatusTarefa = StatusTarefa.pendente`).
-
-**Validação do arquivo (sem rodar o servidor inteiro):**
+**Versão escolhida:** SQLAlchemy 2.0.36 (série 2.0.x, sintaxe moderna, compatível
+com Python 3.12 e FastAPI 0.115.14).
 
 ```bash
-python -c 'from app.models.tarefa import Tarefa; print("Schema carregado com sucesso!")'
+pip install sqlalchemy==2.0.36
+pip freeze > requirements.txt
 ```
 
-> Nota: usamos aspas simples por fora e duplas por dentro para evitar o erro
-> `event not found` do Bash, causado pelo `!` dentro de aspas duplas (history expansion).
+> A instalação trouxe a dependência `greenlet` automaticamente — usada
+> internamente pelo SQLAlchemy para suportar operações assíncronas.
+
+**Regra reforçada:** sempre que uma dependência é instalada ou removida, repetir
+`pip freeze > requirements.txt` para manter o arquivo fiel ao ambiente real.
 
 ---
 
-### 2.3 Criação das Rotas
+### 3.3 Configuração da Conexão (Engine, Session, Base)
 
-**Conceito: Router (Roteador) no FastAPI** — agrupa rotas relacionadas em um
-arquivo separado, mantendo a organização por camada técnica (routes/services/models)
-e por domínio dentro de cada camada (um arquivo por assunto, ex: tarefas.py).
-
-Arquivo criado: `app/routes/tarefas.py`
+Criada a pasta `database/` com seu próprio `__init__.py`, e o arquivo de
+configuração central:
 
 ```python
-from datetime import datetime
+# database/db.py
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-from fastapi import APIRouter
+DATABASE_URL = "sqlite:///./database/task_manager.db"
 
-from app.models.tarefa import Tarefa
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-router = APIRouter(prefix="/v1/tarefas", tags=["Tarefas"])
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-tarefas_db: list[Tarefa] = []
-
-
-@router.get("/")
-def listar_tarefas():
-    return tarefas_db
-
-
-@router.post("/")
-def criar_tarefa(tarefa: Tarefa):
-    tarefa.data_criacao = datetime.now()
-    tarefas_db.append(tarefa)
-    return tarefa
+Base = declarative_base()
 ```
 
-**Importante:** o `prefix` definido no `APIRouter()` já se aplica
-automaticamente a todas as rotas declaradas dentro dele. Por isso os decorators
-usam apenas `"/"` — usar `@router.post("/v1/tarefas")` aqui causaria duplicação
-do caminho (`/v1/tarefas/v1/tarefas`).
+**Conceitos:**
+- `Engine` — sabe como conversar com o banco (tipo, caminho do arquivo).
+- `SessionLocal` — "fábrica" de sessões, usada para ler/escrever dados.
+- `Base` — classe-base da qual todo modelo ORM herda, conectando classes
+  Python a tabelas reais.
+- `connect_args={"check_same_thread": False}` — necessário porque o SQLite
+  por padrão restringe o uso a uma única thread, mas o FastAPI atende
+  requisições em paralelo.
 
-> `tarefas_db` é uma lista Python em memória — simula um banco de dados
-> temporariamente. Os dados se perdem ao reiniciar o servidor. O SQLite será
-> conectado em uma sessão futura.
+Validação:
+```bash
+python -c 'from database.db import engine, SessionLocal, Base; print("Conexão configurada com sucesso!")'
+```
 
 ---
 
-### 2.4 Conectar as Rotas ao main.py
-
-O `main.py` precisa importar e registrar o router para que o FastAPI saiba
-que essas rotas existem.
+### 3.4 Criação do Modelo ORM
 
 ```python
-from fastapi import FastAPI
+# app/models/tarefa_db.py
+from sqlalchemy import Column, Integer, String, DateTime, Date
 
-from app.routes import tarefas
-
-app = FastAPI(title="Task Manager API")
-
-app.include_router(tarefas.router)
+from database.db import Base
 
 
-@app.get("/")
-def read_root():
-    return {"message": "Task Manager API está no ar!"}
+class TarefaDB(Base):
+    __tablename__ = "tarefas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String, nullable=False)
+    descricao = Column(String, nullable=True)
+    status = Column(String, default="pendente", nullable=False)
+    prioridade = Column(String, default="media", nullable=False)
+    data_criacao = Column(DateTime, nullable=False)
+    data_vencimento = Column(Date, nullable=True)
 ```
 
-**Erro encontrado:** o `main.py` ficou sem essas duas linhas (`from app.routes
-import tarefas` e `app.include_router(tarefas.router)`) durante a edição —
-por isso só a rota `/` aparecia no Swagger, e as rotas de tarefas pareciam não
-existir. Diagnosticado comparando o conteúdo real do `main.py` com o esperado.
+**Decisões tomadas:**
+- Nome `TarefaDB` (não `Tarefa`) para não colidir com o schema Pydantic já
+  existente — convenção comum de mercado (sufixo `DB` ou `Model`).
+- `status` e `prioridade` armazenados como `String` simples no banco, mesmo
+  sendo `Enum` no schema da API — simplificação válida neste estágio de
+  aprendizado. SQLAlchemy suporta Enum nativo, fica como evolução futura.
+- `primary_key=True` + `index=True` na coluna `id`.
+- `nullable=True/False` equivale ao `str | None` do Pydantic.
+
+Validação:
+```bash
+python -c 'from app.models.tarefa_db import TarefaDB; print("Modelo ORM carregado com sucesso!")'
+```
 
 ---
 
-### 2.5 Rodando e Testando a API
+### 3.5 Criação da Tabela no Banco
 
 ```bash
+python -c 'from database.db import Base, engine; from app.models.tarefa_db import TarefaDB; Base.metadata.create_all(bind=engine); print("Tabela criada com sucesso!")'
+```
+
+Resultado: arquivo `database/task_manager.db` criado (12.288 bytes), com a
+tabela `tarefas` e o índice `ix_tarefas_id` (gerado por `index=True`).
+
+---
+
+### 3.6 Inspeção Visual com DB Browser for SQLite
+
+**Conceito:** ferramenta gráfica open source para abrir e inspecionar arquivos
+`.db` do SQLite, sem precisar escrever código.
+
+Instalado a partir de https://sqlitebrowser.org/dl/ (versão 3.13.0, win64).
+
+**Uso no projeto:** abrir `database/task_manager.db` → aba "Database Structure"
+para confirmar visualmente o que o SQLAlchemy criou. Aba "Browse Data" permite
+ver as linhas salvas, útil para conferir os testes feitos via Swagger.
+
+**Regra importante estabelecida:** criar uma tabela manualmente pela interface
+do DB Browser não basta — o SQLAlchemy só reconhece tabelas que tenham um
+modelo ORM correspondente declarado em Python. As duas formas (interface e
+código) precisam estar sincronizadas; a interface serve para inspecionar e
+rascunhar visualmente, mas a criação "oficial" continua vindo do código.
+
+Confirmado visualmente: esquema da tabela
+`CREATE TABLE tarefas (id INTEGER NOT NULL, titulo VARCHAR NOT NULL, descricao VARCHAR, status VARCHAR...)`
+e o índice `ix_tarefas_id ON tarefas (id)`.
+
+---
+
+### 3.7 Script de Automação — start.sh
+
+**Conceito:** script que agrupa comandos repetitivos (ativar venv + subir o
+servidor) em um único comando executável.
+
+```bash
+# start.sh
+#!/bin/bash
+echo "Ativando ambiente virtual..."
+source venv/Scripts/activate
+
+echo "Subindo a API..."
 uvicorn main:app --reload
 ```
 
-- `uvicorn` → servidor que executa a API
-- `main:app` → "no arquivo main.py, use o objeto chamado app"
-- `--reload` → reinicia automaticamente ao detectar mudanças no código
+```bash
+chmod +x start.sh
+./start.sh
+```
 
-Testado via Swagger (`http://127.0.0.1:8000/docs`):
-- `GET /v1/tarefas/` → lista as tarefas em memória
-- `POST /v1/tarefas/` → cria uma nova tarefa
-
----
-
-### 2.6 Problemas Resolvidos Nesta Sessão
-
-| Problema | Causa | Solução |
-|---|---|---|
-| `Import "fastapi" could not be resolved` no VS Code | Pylance usando interpretador Python diferente do venv | `Ctrl+Shift+P` → `Python: Select Interpreter` → apontar para `venv\Scripts\python.exe` |
-| `bash: !": event not found` | History expansion do Bash interpretando `!` dentro de aspas duplas | Usar aspas simples por fora, duplas por dentro |
-| Rota POST não aparecia corretamente no Swagger | Path duplicado (`@router.post("/v1/tarefas")` dentro de um router que já tem esse prefix) | Usar apenas `"/"` no decorator |
-| Apenas a rota `/` aparecia no Swagger | `main.py` sem o `include_router` | Reescrever `main.py` com o import e o `include_router` |
-| `PydanticUserError: not fully defined` | Enum usado como tipo sem o `=` (`status: StatusTarefa.pendente` em vez de `status: StatusTarefa = StatusTarefa.pendente`) | Corrigir a sintaxe de tipo + valor padrão |
-| Edições feitas pelo terminal não apareciam no arquivo | Conflito entre o conteúdo em disco (escrito pelo terminal) e a versão aberta no VS Code | Fechar a aba antes de sobrescrever via terminal, ou editar direto no editor e salvar com `Ctrl+S` |
+`chmod +x` concede permissão de execução — sem isso o sistema trata o
+arquivo como texto comum, não como programa executável.
 
 ---
 
-### 2.7 Arquitetura Atual do Projeto
+### 3.8 Arquitetura Atual do Projeto
 
 ```
 task_manager/
 ├── app/
 │   ├── routes/
-│   │   └── tarefas.py     → GET e POST de tarefas (rotas = método HTTP + path)
-│   ├── services/          → ainda vazio, sem lógica de negócio implementada
-│   ├── models/
-│   │   └── tarefa.py      → Enums (StatusTarefa, PrioridadeTarefa) + schema Tarefa
-│   └── __init__.py
+│   │   └── tarefas.py        → GET e POST de tarefas
+│   ├── services/              → ainda vazio
+│   └── models/
+│       ├── tarefa.py          → Schema Pydantic (contrato da API)
+│       └── tarefa_db.py       → Modelo ORM SQLAlchemy (tabela real)
+├── database/
+│   ├── db.py                  → Engine, Session, Base
+│   └── task_manager.db        → arquivo do banco SQLite
 ├── tests/
-├── main.py                → ponto de entrada, conecta os routers
+├── start.sh                   → sobe a API com um comando
+├── main.py
 ├── requirements.txt
 ├── README.md
 └── GUIDE.md
 ```
 
-**Fluxo atual de uma requisição:**
+**Fluxo planejado de uma requisição (parte ainda não implementada — ver pendência 3.9):**
 
-1. Cliente (Swagger/navegador) envia requisição HTTP para `/v1/tarefas/`
-2. `routes/tarefas.py` recebe e processa diretamente (ainda sem passar por `services/`)
-3. Os dados são validados pelo schema `Tarefa` em `models/tarefa.py`
-4. A resposta é devolvida — armazenamento ainda em lista Python (memória), sem banco de dados real
+1. Cliente (Swagger) envia requisição HTTP para `/v1/tarefas/`
+2. `routes/tarefas.py` recebe a requisição
+3. Dados validados pelo schema `Tarefa` (Pydantic) em `models/tarefa.py`
+4. Dependency Injection do FastAPI fornece uma sessão do banco à rota
+5. Sessão usa o modelo ORM `TarefaDB` (`models/tarefa_db.py`) para gravar/ler
+6. Dados persistidos de fato em `database/task_manager.db`
 
-**Nota de nomenclatura — domínio vs camada:**
-Diferente de frameworks que organizam por domínio completo (uma pasta só para
-"cadastro", outra para "vendas", cada uma com suas próprias rotas/regras/dados
-dentro), aqui organizamos primeiro por **camada técnica** (routes/services/models)
-e, dentro de cada camada, por **domínio** (um arquivo por assunto). Quando
-surgir um novo domínio (ex: usuários), have um `usuarios.py` em cada uma das
-três pastas.
-
-**Nota — Schema (Pydantic) vs Tabela de banco de dados:**
-O que existe hoje em `models/tarefa.py` é um schema que define o contrato de
-dados da API, não uma tabela de banco real. Quando o SQLite for conectado,
-provavelmente teremos dois modelos distintos: um para a API (schema) e outro
-para a persistência (tabela) — conceito a ser detalhado na sessão de conexão
-com o banco de dados.
+**Hoje, na prática:** as rotas ainda usam a lista em memória (`tarefas_db = []`)
+— a conexão real das rotas ao banco (passos 4-6) é a próxima etapa.
 
 ---
 
-### Resumo da Sessão 2
+### 3.9 Pendência — Próxima Sessão
+
+**Objetivo:** conectar `app/routes/tarefas.py` ao banco real, substituindo
+`tarefas_db = []` por uma sessão SQLAlchemy via Dependency Injection do FastAPI.
+
+Conceito a aprofundar: como o FastAPI usa `Depends()` para fornecer e encerrar
+automaticamente uma sessão de banco a cada requisição.
+
+---
+
+### Resumo da Sessão 3
 
 | Atividade | Status |
 |---|---|
-| Modelagem da entidade Tarefa | ✅ |
-| Criação do schema Pydantic (tarefa.py) | ✅ |
-| Criação das rotas GET e POST (tarefas.py) | ✅ |
-| Conexão das rotas ao main.py | ✅ |
-| Testes manuais via Swagger | ✅ |
-| Resolução de 6 problemas práticos (ver tabela 2.6) | ✅ |
-| Revisão conceitual: rotas, schema vs tabela, organização por camada | ✅ |
+| Conceito Schema vs Modelo ORM esclarecido | ✅ |
+| Instalação do SQLAlchemy (versão travada) | ✅ |
+| Configuração de Engine, Session, Base | ✅ |
+| Criação do modelo ORM TarefaDB | ✅ |
+| Criação da tabela no SQLite | ✅ |
+| Instalação e uso do DB Browser for SQLite | ✅ |
+| Criação do script start.sh | ✅ |
+| README atualizado | ✅ |
+| Diagrama de arquitetura atualizado | ✅ |
+| Conexão das rotas ao banco real (Dependency Injection) | ⏳ pendente |
 
----
-
-## Sessão 3 — A definir
-
-**Objetivo sugerido:** Conectar o SQLite, criar o modelo de persistência e
-implementar a camada de serviços (services/) com a lógica de negócio.
