@@ -11,13 +11,14 @@ GitHub: https://github.com/jlamancio/task_manager
 | Camada | Tecnologia | Versão |
 |---|---|---|
 | Back-end | Python + FastAPI | Python 3.12.9 / FastAPI 0.115.14 |
-| Banco de dados | SQLite | A definir |
+| Banco de dados | SQLite + SQLAlchemy | SQLAlchemy 2.0.36 |
 | Front-end | HTML + CSS + JavaScript puro | - |
 | Testes back-end | Pytest | 8.3.5 |
 | Testes front-end | Cypress | A definir no setup front-end |
 | Servidor | Uvicorn | 0.34.3 |
 | Ambiente | Node.js + npm | Node 22.22.3 / npm 10.9.8 |
 | Clientes de API | Postman / Insomnia | - |
+| Inspeção de banco | DB Browser for SQLite | 3.13.0 |
 | Versionamento | Git + GitHub | Git 2.51.0 |
 
 > Todas as versões estão travadas com `==` no requirements.txt. O package.json não utilizará `^` ou `~`.
@@ -26,13 +27,12 @@ GitHub: https://github.com/jlamancio/task_manager
 
 ## Pré-requisitos
 
-Antes de rodar o projeto, certifique-se de ter instalado:
-
 - Python 3.12+: https://www.python.org/downloads
 - Node.js LTS: https://nodejs.org/en/download
 - Git: https://git-scm.com/downloads
 - Postman: https://www.postman.com/downloads
 - Insomnia: https://insomnia.rest/download
+- DB Browser for SQLite: https://sqlitebrowser.org/dl/
 
 ### Validação do ambiente
 
@@ -64,8 +64,6 @@ source venv/Scripts/activate
 
 > No Windows com Git Bash use `source venv/Scripts/activate`.
 > No Mac/Linux use `source venv/bin/activate`.
->
-> Quando ativo, o terminal exibirá `(venv)` no início da linha.
 
 ### 3. Instalar as dependências
 
@@ -73,13 +71,32 @@ source venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
-### 4. Verificar as instalações
+---
+
+## Subindo a API
+
+A forma recomendada é usando o script `start.sh`, que ativa o ambiente virtual e sobe o servidor em um único comando:
 
 ```bash
-pip show fastapi
-pip show uvicorn
-pip show pytest
+./start.sh
 ```
+
+Se o arquivo não tiver permissão de execução, rode uma vez:
+
+```bash
+chmod +x start.sh
+```
+
+**Alternativa manual** (equivalente ao que o script faz):
+
+```bash
+source venv/Scripts/activate
+uvicorn main:app --reload
+```
+
+Depois de subir, acesse:
+- API: http://127.0.0.1:8000
+- Documentação interativa (Swagger/OpenAPI): http://127.0.0.1:8000/docs
 
 ---
 
@@ -89,15 +106,22 @@ pip show pytest
 task_manager/
 ├── app/
 │   ├── __init__.py
-│   ├── models/         → representação dos dados (o "almoxarifado")
-│   ├── routes/         → endpoints da API (o "porteiro")
-│   └── services/       → regras de negócio (o "cérebro")
-├── tests/              → testes automatizados com Pytest
-├── venv/               → ambiente virtual (não vai para o GitHub)
+│   ├── routes/
+│   │   └── tarefas.py       → GET e POST de tarefas (rotas)
+│   ├── services/             → regras de negócio (em construção)
+│   └── models/
+│       ├── tarefa.py         → Schema Pydantic (contrato da API)
+│       └── tarefa_db.py      → Modelo ORM SQLAlchemy (tabela real)
+├── database/
+│   ├── db.py                 → Engine, Session e Base do SQLAlchemy
+│   └── task_manager.db       → arquivo do banco SQLite
+├── tests/                    → testes automatizados com Pytest
+├── venv/                      → ambiente virtual (não vai para o GitHub)
+├── start.sh                   → script para subir a API
 ├── .gitignore
-├── requirements.txt    → dependências com versões travadas
+├── requirements.txt           → dependências com versões travadas
 ├── README.md
-└── GUIDE.md            → diário técnico do projeto
+└── GUIDE.md                   → diário técnico do projeto
 ```
 
 ---
@@ -110,9 +134,12 @@ task_manager/
 |---|---|
 | Routes | Recebe as requisições |
 | Services | Contém as regras de negócio |
-| Models | Representa e manipula os dados |
+| Models (Schema) | Valida o formato dos dados da API (Pydantic) |
+| Models (ORM) | Representa a tabela real no banco (SQLAlchemy) |
 
 **Front-end:** testes seguem o padrão Page Object Model (POM) com Cypress.
+
+**Banco de dados:** SQLite, acessado via SQLAlchemy (ORM). Pode ser inspecionado visualmente com o DB Browser for SQLite, abrindo `database/task_manager.db`.
 
 ---
 
@@ -121,7 +148,9 @@ task_manager/
 - [x] Definição de escopo e stack
 - [x] Criação do repositório e README
 - [x] Etapa 0 — Setup do ambiente
-- [ ] Etapa 1 — Back-end: API + Banco de dados + Testes (Pytest)
+- [x] Primeira rota da API (Tarefas) com armazenamento em memória
+- [x] Conexão com SQLite via SQLAlchemy (Engine, Session, modelo ORM)
+- [ ] Conectar rotas ao banco real via Dependency Injection
 - [ ] Etapa 2 — Front-end: Páginas + Testes (Cypress)
 
 ---
@@ -131,6 +160,7 @@ task_manager/
 - Python: https://www.python.org
 - FastAPI: https://fastapi.tiangolo.com
 - SQLite: https://sqlite.org
+- SQLAlchemy: https://www.sqlalchemy.org
 - JavaScript: https://developer.mozilla.org/pt-BR/docs/Web/JavaScript
 - Node.js: https://nodejs.org
 - npm: https://www.npmjs.com
@@ -139,5 +169,6 @@ task_manager/
 - Pytest: https://docs.pytest.org
 - Postman: https://www.postman.com
 - Insomnia: https://insomnia.rest
+- DB Browser for SQLite: https://sqlitebrowser.org
 - Git: https://git-scm.com
 - GitHub: https://github.com
