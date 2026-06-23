@@ -3,6 +3,10 @@
 Este arquivo registra as atividades desenvolvidas em cada sessão do projeto,
 servindo como material de referência e estudo.
 
+**Padrão de cabeçalho:** toda sessão registra **Data** e **Branch** logo no
+início, mesmo quando coincide com a sessão anterior — facilita rastrear
+quando cada decisão foi tomada.
+
 ---
 
 ## Sessão 1 — Setup do Ambiente
@@ -26,6 +30,7 @@ servindo como material de referência e estudo.
 ---
 
 ## Sessão 2 — Primeira Rota da API (Tarefas)
+**Data:** 19/06/2026
 **Branch:** feature/backend
 
 Modelagem da entidade Tarefa, criação do schema Pydantic (`app/models/tarefa.py`)
@@ -50,6 +55,7 @@ sintaxe no Enum (`status: StatusTarefa.pendente` sem o `=`).
 ---
 
 ## Sessão 3 — Conexão com SQLite via SQLAlchemy
+**Data:** 20/06/2026
 **Branch:** feature/backend
 
 ---
@@ -73,12 +79,6 @@ reforçar a "fundação" (tabela), e vice-versa.
 
 ### 3.2 Instalação do SQLAlchemy
 
-Consultamos a versão estável antes de instalar, seguindo o mesmo critério já
-usado para FastAPI, Uvicorn e Pytest (série madura, bem testada).
-
-**Versão escolhida:** SQLAlchemy 2.0.36 (série 2.0.x, sintaxe moderna, compatível
-com Python 3.12 e FastAPI 0.115.14).
-
 ```bash
 pip install sqlalchemy==2.0.36
 pip freeze > requirements.txt
@@ -94,9 +94,6 @@ pip freeze > requirements.txt
 
 ### 3.3 Configuração da Conexão (Engine, Session, Base)
 
-Criada a pasta `database/` com seu próprio `__init__.py`, e o arquivo de
-configuração central:
-
 ```python
 # database/db.py
 from sqlalchemy import create_engine
@@ -110,15 +107,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 ```
-
-**Conceitos:**
-- `Engine` — sabe como conversar com o banco (tipo, caminho do arquivo).
-- `SessionLocal` — "fábrica" de sessões, usada para ler/escrever dados.
-- `Base` — classe-base da qual todo modelo ORM herda, conectando classes
-  Python a tabelas reais.
-- `connect_args={"check_same_thread": False}` — necessário porque o SQLite
-  por padrão restringe o uso a uma única thread, mas o FastAPI atende
-  requisições em paralelo.
 
 Validação:
 ```bash
@@ -148,15 +136,6 @@ class TarefaDB(Base):
     data_vencimento = Column(Date, nullable=True)
 ```
 
-**Decisões tomadas:**
-- Nome `TarefaDB` (não `Tarefa`) para não colidir com o schema Pydantic já
-  existente — convenção comum de mercado (sufixo `DB` ou `Model`).
-- `status` e `prioridade` armazenados como `String` simples no banco, mesmo
-  sendo `Enum` no schema da API — simplificação válida neste estágio de
-  aprendizado. SQLAlchemy suporta Enum nativo, fica como evolução futura.
-- `primary_key=True` + `index=True` na coluna `id`.
-- `nullable=True/False` equivale ao `str | None` do Pydantic.
-
 Validação:
 ```bash
 python -c 'from app.models.tarefa_db import TarefaDB; print("Modelo ORM carregado com sucesso!")'
@@ -170,38 +149,24 @@ python -c 'from app.models.tarefa_db import TarefaDB; print("Modelo ORM carregad
 python -c 'from database.db import Base, engine; from app.models.tarefa_db import TarefaDB; Base.metadata.create_all(bind=engine); print("Tabela criada com sucesso!")'
 ```
 
-Resultado: arquivo `database/task_manager.db` criado (12.288 bytes), com a
-tabela `tarefas` e o índice `ix_tarefas_id` (gerado por `index=True`).
+Resultado: arquivo `database/task_manager.db` criado, com a tabela `tarefas`
+e o índice `ix_tarefas_id` (gerado por `index=True`).
 
 ---
 
 ### 3.6 Inspeção Visual com DB Browser for SQLite
 
-**Conceito:** ferramenta gráfica open source para abrir e inspecionar arquivos
-`.db` do SQLite, sem precisar escrever código.
-
 Instalado a partir de https://sqlitebrowser.org/dl/ (versão 3.13.0, win64).
-
-**Uso no projeto:** abrir `database/task_manager.db` → aba "Database Structure"
-para confirmar visualmente o que o SQLAlchemy criou. Aba "Browse Data" permite
-ver as linhas salvas, útil para conferir os testes feitos via Swagger.
 
 **Regra importante estabelecida:** criar uma tabela manualmente pela interface
 do DB Browser não basta — o SQLAlchemy só reconhece tabelas que tenham um
-modelo ORM correspondente declarado em Python. As duas formas (interface e
-código) precisam estar sincronizadas; a interface serve para inspecionar e
-rascunhar visualmente, mas a criação "oficial" continua vindo do código.
-
-Confirmado visualmente: esquema da tabela
-`CREATE TABLE tarefas (id INTEGER NOT NULL, titulo VARCHAR NOT NULL, descricao VARCHAR, status VARCHAR...)`
-e o índice `ix_tarefas_id ON tarefas (id)`.
+modelo ORM correspondente declarado em Python. A interface serve para
+inspecionar e rascunhar visualmente, mas a criação "oficial" continua vindo
+do código.
 
 ---
 
 ### 3.7 Script de Automação — start.sh
-
-**Conceito:** script que agrupa comandos repetitivos (ativar venv + subir o
-servidor) em um único comando executável.
 
 ```bash
 # start.sh
@@ -218,55 +183,6 @@ chmod +x start.sh
 ./start.sh
 ```
 
-`chmod +x` concede permissão de execução — sem isso o sistema trata o
-arquivo como texto comum, não como programa executável.
-
----
-
-### 3.8 Arquitetura Atual do Projeto
-
-```
-task_manager/
-├── app/
-│   ├── routes/
-│   │   └── tarefas.py        → GET e POST de tarefas
-│   ├── services/              → ainda vazio
-│   └── models/
-│       ├── tarefa.py          → Schema Pydantic (contrato da API)
-│       └── tarefa_db.py       → Modelo ORM SQLAlchemy (tabela real)
-├── database/
-│   ├── db.py                  → Engine, Session, Base
-│   └── task_manager.db        → arquivo do banco SQLite
-├── tests/
-├── start.sh                   → sobe a API com um comando
-├── main.py
-├── requirements.txt
-├── README.md
-└── GUIDE.md
-```
-
-**Fluxo planejado de uma requisição (parte ainda não implementada — ver pendência 3.9):**
-
-1. Cliente (Swagger) envia requisição HTTP para `/v1/tarefas/`
-2. `routes/tarefas.py` recebe a requisição
-3. Dados validados pelo schema `Tarefa` (Pydantic) em `models/tarefa.py`
-4. Dependency Injection do FastAPI fornece uma sessão do banco à rota
-5. Sessão usa o modelo ORM `TarefaDB` (`models/tarefa_db.py`) para gravar/ler
-6. Dados persistidos de fato em `database/task_manager.db`
-
-**Hoje, na prática:** as rotas ainda usam a lista em memória (`tarefas_db = []`)
-— a conexão real das rotas ao banco (passos 4-6) é a próxima etapa.
-
----
-
-### 3.9 Pendência — Próxima Sessão
-
-**Objetivo:** conectar `app/routes/tarefas.py` ao banco real, substituindo
-`tarefas_db = []` por uma sessão SQLAlchemy via Dependency Injection do FastAPI.
-
-Conceito a aprofundar: como o FastAPI usa `Depends()` para fornecer e encerrar
-automaticamente uma sessão de banco a cada requisição.
-
 ---
 
 ### Resumo da Sessão 3
@@ -280,7 +196,177 @@ automaticamente uma sessão de banco a cada requisição.
 | Criação da tabela no SQLite | ✅ |
 | Instalação e uso do DB Browser for SQLite | ✅ |
 | Criação do script start.sh | ✅ |
-| README atualizado | ✅ |
-| Diagrama de arquitetura atualizado | ✅ |
-| Conexão das rotas ao banco real (Dependency Injection) | ⏳ pendente |
+| Conexão das rotas ao banco real (Dependency Injection) | ⏳ adiado para Sessão 4 |
 
+---
+
+## Sessão 4 — Dependency Injection, DELETE, PUT e Black Formatter
+**Data:** 23/06/2026
+**Branch:** feature/backend
+
+---
+
+### 4.1 Dependency Injection — Conectando as Rotas ao Banco Real
+
+Adicionada a `database/db.py`:
+
+```python
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+`app/routes/tarefas.py` reescrito para usar o banco real em vez da lista em
+memória, com `GET` e `POST` usando `db: Session = Depends(get_db)`.
+
+**Testado e confirmado de duas formas independentes:**
+- Via Swagger: POST retornou `id: 1` gerado pelo banco.
+- Via DB Browser, aba "Execute SQL", `select * from tarefas` — mesma linha
+  confirmada na tabela física.
+
+> Esse é o marco em que o fluxo planejado no fim da Sessão 3 se tornou real:
+> Cliente → Schema (Pydantic) → Dependency Injection → Modelo ORM → SQLite.
+
+---
+
+### 4.2 DELETE — Remoção por ID
+
+```python
+@router.delete("/{tarefa_id}")
+def deletar_tarefa(tarefa_id: int, db: Session = Depends(get_db)):
+    tarefa = db.query(TarefaDB).filter(TarefaDB.id == tarefa_id).first()
+
+    if tarefa is None:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+
+    db.delete(tarefa)
+    db.commit()
+    return {"detail": "Tarefa removida com sucesso"}
+```
+
+**Erros cometidos e corrigidos durante a escrita manual:**
+- `@router.delete("/tarefa_id}")` — faltava o `{` de abertura do path parameter.
+- `@router.delete("{/tarefa.id}")` — chave na posição errada e `.id` em vez de `_id`.
+- `TarefaDB.id == tarefa.id` em vez de `TarefaDB.id == tarefa_id` — confundir a
+  variável que vem da URL (`tarefa_id`, um número) com o atributo de um objeto
+  que ainda não existe naquela linha (`tarefa.id`).
+
+**Testado:** sequência completa — listar, criar, deletar um id existente
+(sucesso), tentar deletar um id inexistente (404 retornado corretamente).
+
+---
+
+### 4.3 PUT — Atualização Completa
+
+```python
+@router.put("/{tarefa_id}")
+def alterar_tarefa(tarefa_id: int, tarefa_atualizada: Tarefa, db: Session = Depends(get_db)):
+    tarefa = db.query(TarefaDB).filter(TarefaDB.id == tarefa_id).first()
+
+    if tarefa is None:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+
+    tarefa.titulo = tarefa_atualizada.titulo
+    tarefa.descricao = tarefa_atualizada.descricao
+    tarefa.status = tarefa_atualizada.status
+    tarefa.prioridade = tarefa_atualizada.prioridade
+    tarefa.data_vencimento = tarefa_atualizada.data_vencimento
+
+    db.commit()
+    db.refresh(tarefa)
+    return tarefa
+```
+
+Note que **`data_criacao` não é atualizada** — a data de criação original da
+tarefa não deve mudar por uma edição posterior.
+
+**Erros cometidos e corrigidos:**
+- Tentativa inicial reaproveitou a lógica do POST (criar `nova_tarefa` com
+  `TarefaDB(...)` e `db.add()`) em vez de atualizar o objeto já buscado.
+- Atribuições inválidas como `status = tarefa.status = concluida` (dois `=` na
+  mesma linha, valor sem aspas/Enum).
+- Indentação inconsistente, que quebrou a sintaxe do arquivo inteiro e
+  impediu até o Black de formatar.
+- Função inicialmente sem o parâmetro `tarefa_atualizada: Tarefa`, causando
+  `"tarefa_atualizada" is not defined`.
+
+**Testado:** reteste com valores diferentes do padrão confirmou a atualização.
+Erro de validação ao enviar `"concluída"` (com acento) — comportamento correto
+do Pydantic, que só aceita os valores exatos do Enum (`pendente`,
+`em_andamento`, `concluida`).
+
+---
+
+### 4.4 Black Formatter — Padronização Automática de Código
+
+**Versão instalada:** Black 26.5.1 (estilo estável 2026).
+
+```bash
+pip install black==26.5.1
+pip freeze > requirements.txt
+```
+
+**Configuração no VS Code** (`settings.json` do usuário, fora do repositório):
+```json
+"[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+}
+```
+
+**Problema encontrado:** o autoformat não acontecia ao salvar. Diagnóstico
+pela aba "Problems" revelou que a causa não era configuração, e sim um erro
+de sintaxe no próprio arquivo (a indentação inconsistente do PUT, item 4.3).
+
+> **Lição registrada:** se o Black "não fizer nada" ao salvar, o primeiro
+> suspeito é um erro de sintaxe no arquivo, não a configuração da extensão.
+
+---
+
+### 4.5 Fluxo Completo — Pydantic, Rota e SQLAlchemy
+
+Pydantic e SQLAlchemy **não se comunicam diretamente**. A ponte entre os dois
+é o código da rota, escrito por nós, que copia campo a campo.
+
+```mermaid
+flowchart TD
+    A["Schema Pydantic valida<br/>tarefa: Tarefa"] --> B["Rota copia os campos<br/>TarefaDB(titulo=tarefa.titulo, ...)"]
+    B --> C["SQLAlchemy traduz<br/>db.add() / db.commit()"]
+    C --> D["SQLite persiste<br/>task_manager.db"]
+```
+
+---
+
+### Resumo da Sessão 4
+
+| Atividade | Status |
+|---|---|
+| Dependency Injection implementada (GET e POST usando o banco real) | ✅ |
+| Rota DELETE com validação 404 | ✅ |
+| Rota PUT com atualização completa | ✅ |
+| Black Formatter instalado e configurado | ✅ |
+| Fluxo Pydantic → Rota → SQLAlchemy → SQLite esclarecido | ✅ |
+| Commit e push da sessão | ✅ |
+
+---
+
+## Cronograma — Fechamento do Back-end
+
+**Definido em:** 22/06/2026
+**Carga:** 2h/dia, todos os dias da semana (incluindo fins de semana)
+
+| Dia | Data | Foco | Status |
+|---|---|---|---|
+| 1 | Ter, 23/06 | Dependency Injection | ✅ concluído (Sessão 4) |
+| 2 | Qua, 24/06 | CRUD — PUT e DELETE | ✅ concluído (Sessão 4, antecipado) |
+| 3 | Qui, 25/06 | CRUD — PATCH | ⏳ pendente |
+| 4 | Sex, 26/06 | Camada de Services | ⏳ pendente |
+| 5 | Sáb, 27/06 | Introdução ao Pytest | ⏳ pendente |
+| 6 | Dom, 28/06 | Testes do CRUD | ⏳ pendente |
+| 7 | Seg, 29/06 | Revisão e fechamento | ⏳ pendente |
+
+> Os Dias 1 e 2 foram concluídos na mesma sessão (23/06), adiantando o
+> cronograma original.
