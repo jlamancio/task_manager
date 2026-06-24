@@ -107,21 +107,23 @@ task_manager/
 ├── app/
 │   ├── __init__.py
 │   ├── routes/
-│   │   └── tarefas.py       → GET e POST de tarefas (rotas)
-│   ├── services/             → regras de negócio (em construção)
+│   │   └── tarefas.py          → rotas (GET, POST, PUT, PATCH, DELETE) — só orquestra
+│   ├── services/
+│   │   └── tarefa_service.py   → regras de negócio: busca, criação, atualização, remoção
 │   └── models/
-│       ├── tarefa.py         → Schema Pydantic (contrato da API)
-│       └── tarefa_db.py      → Modelo ORM SQLAlchemy (tabela real)
+│       ├── tarefa.py           → Schema Pydantic (contrato da API) + TarefaPatch
+│       └── tarefa_db.py        → Modelo ORM SQLAlchemy (tabela real)
 ├── database/
-│   ├── db.py                 → Engine, Session e Base do SQLAlchemy
-│   └── task_manager.db       → arquivo do banco SQLite
-├── tests/                    → testes automatizados com Pytest
-├── venv/                      → ambiente virtual (não vai para o GitHub)
-├── start.sh                   → script para subir a API
+│   ├── db.py                   → Engine, Session, Base e get_db() (Dependency Injection)
+│   └── task_manager.db         → arquivo do banco SQLite
+├── tests/                       → testes automatizados com Pytest
+├── venv/                        → ambiente virtual (não vai para o GitHub)
+├── start.sh                     → script para subir a API
 ├── .gitignore
-├── requirements.txt           → dependências com versões travadas
+├── requirements.txt             → dependências com versões travadas
 ├── README.md
-└── GUIDE.md                   → diário técnico do projeto
+├── GUIDE.md                     → diário técnico do projeto
+└── CONCEITOS.md                 → glossário de consulta rápida (uso pessoal)
 ```
 
 ---
@@ -150,7 +152,11 @@ task_manager/
 - [x] Etapa 0 — Setup do ambiente
 - [x] Primeira rota da API (Tarefas) com armazenamento em memória
 - [x] Conexão com SQLite via SQLAlchemy (Engine, Session, modelo ORM)
-- [ ] Conectar rotas ao banco real via Dependency Injection
+- [x] Conectar rotas ao banco real via Dependency Injection
+- [x] CRUD completo (GET, POST, PUT, PATCH, DELETE)
+- [x] Camada de Services (lógica de negócio fora das rotas)
+- [x] Validação cruzada via Swagger e Postman
+- [ ] Testes automatizados com Pytest
 - [ ] Etapa 2 — Front-end: Páginas + Testes (Cypress)
 
 ---

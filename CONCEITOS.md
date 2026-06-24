@@ -119,8 +119,8 @@ independente de haver requisição.
   persistida).
 - Mudar a "pintura" (schema) não exige reforçar a "fundação" (tabela).
 
-**Os dois NÃO se conversam diretamente.** A ponte é o código da rota, que
-copia campo a campo:
+**Os dois NÃO se conversam diretamente.** A ponte é o código — hoje, o
+**service** — que copia campo a campo:
 ```python
 nova_tarefa = TarefaDB(titulo=tarefa.titulo, descricao=tarefa.descricao, ...)
 ```
@@ -141,6 +141,63 @@ retorna o primeiro resultado ou `None`.
 **PUT não usa `db.add()`** — só `db.commit()`, porque o objeto já foi buscado
 e já está vinculado à sessão; o SQLAlchemy detecta a mudança nos atributos
 automaticamente.
+
+**Consistência entre schema e banco (`nullable`)** — todo campo `nullable=False`
+no modelo ORM precisa ter um equivalente obrigatório no schema Pydantic (sem
+`| None = None`), e vice-versa. Se o schema permite `None` mas o banco exige
+preenchido, a requisição passa pela validação do Pydantic e só falha mais
+tarde, no SQLAlchemy, com um erro menos claro. Vale revisar os dois arquivos
+lado a lado sempre que um campo for adicionado ou alterado.
+
+---
+
+## 5.1 Camada de Services
+
+**Service** — camada que concentra as regras de negócio (o "o que fazer com
+os dados"), separada de quem recebe a requisição (rota) e de quem representa
+os dados (models). Existe como função Python comum — **não** usa
+`Depends()`, porque isso é mecanismo específico de rota do FastAPI.
+
+**Por que extrair da rota:** sem essa separação, qualquer outra forma de
+criar/alterar uma tarefa (ex: um script via linha de comando) precisaria
+duplicar a lógica que hoje só existiria dentro da função da rota.
+
+**Divisão de responsabilidade:**
+
+| Camada | Função |
+|---|---|
+| Rota | Recebe a requisição HTTP, declara o path/método, e **chama** o service |
+| Service | Busca, valida, cria, atualiza, remove — a lógica de fato |
+
+**Convenção de nomes usada no projeto** (verbo HTTP na rota, verbo de negócio
+no service):
+
+| Rota | Service |
+|---|---|
+| `listar_tarefas` | `get_tarefas` |
+| `criar_tarefa` | `create_tarefa` |
+| `deletar_tarefa` | `delete_tarefa` |
+| `alterar_tarefa` | `update_tarefa` |
+| `atualizar_parcial` | `patch_tarefa` |
+
+**Como a rota chama o service** — passa exatamente os parâmetros que recebeu,
+incluindo a sessão do banco já injetada via `Depends(get_db)`:
+```python
+@router.delete("/{tarefa_id}")
+def deletar_tarefa(tarefa_id: int, db: Session = Depends(get_db)):
+    return tarefa_service.delete_tarefa(tarefa_id, db)
+```
+
+**Erro comum ao refatorar:** chamar a função do service sem todos os
+argumentos que ela espera (ex: `delete_tarefa(db)` em vez de
+`delete_tarefa(tarefa_id, db)`). Sempre confira a assinatura (`def` no
+arquivo de origem) e conte os parâmetros antes de chamar.
+
+**Pendência de design conhecida:** hoje o service usa `HTTPException`
+diretamente (um conceito de protocolo HTTP) — o ideal, a longo prazo, seria o
+service levantar uma exceção própria de negócio (ex: `TarefaNaoEncontrada`) e
+deixar a rota traduzir isso para o código HTTP. Simplificação aceitável por
+ora; planejada para revisão antes do início do front-end.
 
 ---
 
@@ -205,8 +262,8 @@ não da configuração da extensão.
 
 | Camada | Pasta | Função |
 |---|---|---|
-| Routes | `app/routes/` | Recebe requisições (o "porteiro") |
-| Services | `app/services/` | Regras de negócio (o "cérebro") — ainda vazio |
+| Routes | `app/routes/` | Recebe requisições e chama o service (o "porteiro") |
+| Services | `app/services/` | Regras de negócio: busca, criação, atualização, remoção (o "cérebro") |
 | Models | `app/models/` | Schema (Pydantic) + Modelo ORM (SQLAlchemy) |
 
 **Organização por domínio dentro da camada** — um arquivo por assunto

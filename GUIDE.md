@@ -353,20 +353,280 @@ flowchart TD
 
 ---
 
-## Cronograma — Fechamento do Back-end
 
-**Definido em:** 22/06/2026
-**Carga:** 2h/dia, todos os dias da semana (incluindo fins de semana)
+## Sessão 5 — Camada de Services e Validação Cruzada (Swagger + Postman)
+**Data:** 24/06/2026
+**Branch:** feature/backend
+
+---
+
+### 5.1 Por que extrair a lógica para Services
+
+Até a Sessão 4, as rotas em `app/routes/tarefas.py` faziam duas coisas ao
+mesmo tempo: recebiam a requisição HTTP **e** sabiam como buscar/criar/
+atualizar no banco. Isso mistura duas responsabilidades diferentes no mesmo
+lugar.
+
+**Motivação prática (não só teórica):** se no futuro existir outra forma de
+criar uma tarefa (ex: um script de linha de comando, sem passar pela API), a
+lógica de negócio precisaria ser duplicada se estivesse só dentro da rota.
+Com a lógica em `services/`, tanto a rota quanto outro consumidor poderiam
+chamar a mesma função.
+
+**Divisão de responsabilidade após a refatoração:**
+
+| Camada | Antes | Depois |
+|---|---|---|
+| Rota | Recebe requisição + busca no banco + valida + salva | Só recebe a requisição e chama o service |
+| Service | *(não existia)* | Busca no banco + valida + salva |
+
+**Convenção de nomes adotada** (inglês no service, português na rota — separa
+a "língua do HTTP" da "língua do negócio"):
+
+| Operação | Nome na Rota | Nome no Service |
+|---|---|---|
+| Listar | `listar_tarefas` | `get_tarefas` |
+| Criar | `criar_tarefa` | `create_tarefa` |
+| Deletar | `deletar_tarefa` | `delete_tarefa` |
+| Atualizar (PUT) | `alterar_tarefa` | `update_tarefa` |
+| Atualizar parcial (PATCH) | `atualizar_parcial` | `patch_tarefa` |
+
+**Organização do arquivo:** seguindo a mesma lógica já usada em routes/models
+(camada técnica primeiro, domínio dentro da camada), todos os services do
+domínio Tarefa ficam em um único arquivo: `app/services/tarefa_service.py`.
+
+---
+
+### 5.2 Implementação
+
+```python
+# app/services/tarefa_service.py
+from datetime import datetime
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.models.tarefa import Tarefa, TarefaPatch
+from app.models.tarefa_db import TarefaDB
+
+
+def get_tarefas(db: Session):
+    return db.query(TarefaDB).all()
+
+
+def create_tarefa(tarefa: Tarefa, db: Session):
+    nova_tarefa = TarefaDB(
+        titulo=tarefa.titulo,
+        descricao=tarefa.descricao,
+        status=tarefa.status,
+        prioridade=tarefa.prioridade,
+        data_criacao=datetime.now(),
+        data_vencimento=tarefa.data_vencimento,
+    )
+    db.add(nova_tarefa)
+    db.commit()
+    db.refresh(nova_tarefa)
+    return nova_tarefa
+
+
+def delete_tarefa(tarefa_id: int, db: Session):
+    tarefa = db.query(TarefaDB).filter(TarefaDB.id == tarefa_id).first()
+
+    if tarefa is None:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+
+    db.delete(tarefa)
+    db.commit()
+    return {"detail": "Tarefa removida com sucesso"}
+
+
+def update_tarefa(tarefa_id: int, tarefa_atualizada: Tarefa, db: Session):
+    tarefa = db.query(TarefaDB).filter(TarefaDB.id == tarefa_id).first()
+
+    if tarefa is None:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+
+    tarefa.titulo = tarefa_atualizada.titulo
+    tarefa.descricao = tarefa_atualizada.descricao
+    tarefa.status = tarefa_atualizada.status
+    tarefa.prioridade = tarefa_atualizada.prioridade
+    tarefa.data_vencimento = tarefa_atualizada.data_vencimento
+
+    db.commit()
+    db.refresh(tarefa)
+    return tarefa
+
+
+def patch_tarefa(tarefa_id: int, dados: TarefaPatch, db: Session):
+    tarefa = db.query(TarefaDB).filter(TarefaDB.id == tarefa_id).first()
+
+    if tarefa is None:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+
+    dados_enviados = dados.model_dump(exclude_unset=True)
+
+    for campo, valor in dados_enviados.items():
+        setattr(tarefa, campo, valor)
+
+    db.commit()
+    db.refresh(tarefa)
+    return tarefa
+```
+
+`app/routes/tarefas.py` reduzido a apenas orquestrar — decorator, parâmetros
+da rota (incluindo `Depends(get_db)`) e uma chamada ao service correspondente:
+
+```python
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.models.tarefa import Tarefa, TarefaPatch
+from app.services import tarefa_service
+from database.db import get_db
+
+router = APIRouter(prefix="/v1/tarefas", tags=["tarefas"])
+
+
+@router.get("/")
+def listar_tarefas(db: Session = Depends(get_db)):
+    return tarefa_service.get_tarefas(db)
+
+
+@router.post("/")
+def criar_tarefa(tarefa: Tarefa, db: Session = Depends(get_db)):
+    return tarefa_service.create_tarefa(tarefa, db)
+
+
+@router.delete("/{tarefa_id}")
+def deletar_tarefa(tarefa_id: int, db: Session = Depends(get_db)):
+    return tarefa_service.delete_tarefa(tarefa_id, db)
+
+
+@router.put("/{tarefa_id}")
+def alterar_tarefa(tarefa_id: int, tarefa_atualizada: Tarefa, db: Session = Depends(get_db)):
+    return tarefa_service.update_tarefa(tarefa_id, tarefa_atualizada, db)
+
+
+@router.patch("/{tarefa_id}")
+def atualizar_parcial(tarefa_id: int, dados: TarefaPatch, db: Session = Depends(get_db)):
+    return tarefa_service.patch_tarefa(tarefa_id, dados, db)
+```
+
+Imports não mais utilizados na rota (`datetime`, `TarefaDB`) removidos após a
+migração da lógica para o service.
+
+**Pendência registrada para depois do back-end completo (antes do front-end):**
+trocar `HTTPException` dentro do service por uma exceção própria de negócio
+(ex: `TarefaNaoEncontrada`), deixando a rota responsável por traduzir isso
+para o código HTTP. Hoje o service "conhece" um conceito de protocolo HTTP
+(`status_code`), o que é uma simplificação aceitável neste estágio, mas não é
+o ideal a longo prazo.
+
+---
+
+### 5.3 Erros encontrados ao escrever os services e a refatoração das rotas
+
+- Função nomeada inicialmente como `post_tarefa` em vez de `create_tarefa` —
+  corrigido para manter a convenção (verbo HTTP na rota, verbo de negócio no
+  service).
+- Chamadas às funções de service inicialmente sem todos os parâmetros
+  esperados (ex: `tarefa_service.create_tarefa()` sem argumentos,
+  `tarefa_service.delete_tarefa(db)` faltando `tarefa_id`). Corrigido
+  conferindo a assinatura de cada função no service e contando os parâmetros
+  esperados vs os passados na chamada.
+- Duas rotas (`alterar_tarefa`, `atualizar_parcial`) perderam o
+  `= Depends(get_db)` ao reescrever — ficou só `db: Session`, o que faria o
+  FastAPI não saber fornecer a sessão automaticamente.
+
+---
+
+### 5.4 Inconsistência encontrada: `data_vencimento` (schema vs banco)
+
+Revisão cruzada entre `app/models/tarefa.py` e `app/models/tarefa_db.py`
+revelou uma divergência:
+
+```python
+# Schema (antes do ajuste)
+data_vencimento: date | None = None        # opcional
+
+# Modelo ORM
+data_vencimento = Column(Date, nullable=False)   # obrigatório no banco
+```
+
+O schema permitia enviar uma tarefa sem `data_vencimento`, mas o banco não
+aceita `NULL` nessa coluna — uma criação sem esse campo geraria erro do
+SQLAlchemy (não um 422 do Pydantic), só não foi percebido porque todos os
+testes até aqui sempre incluíram a data.
+
+**Decisão:** toda tarefa deve obrigatoriamente ter uma data de vencimento.
+Schema `Tarefa` ajustado para `data_vencimento: date` (sem `| None = None`).
+`TarefaPatch` mantido com `data_vencimento` opcional — a obrigatoriedade vale
+para criação (POST/PUT), não para atualização parcial.
+
+---
+
+### 5.5 Correção anterior confirmada: campo `id` obrigatório por engano
+
+Registrado aqui para constar no histórico (identificado durante teste via
+Postman, fora do Swagger): o schema `Tarefa` tinha `id: int` sem valor
+padrão, tornando-o obrigatório no corpo da requisição — mesmo sendo um campo
+gerado pelo banco no POST. O Swagger não expôs o problema porque seu JSON de
+exemplo já vinha com `"id": 0` preenchido. Corrigido para
+`id: int | None = None`.
+
+---
+
+### 5.6 Erro de validação de Enum no PATCH (reforço do conceito)
+
+Ao testar o PATCH via Postman, novo exemplo do mesmo padrão de erro já visto
+no PUT (Sessão 4): envio de `"em andamento"` (com espaço) rejeitado pelo
+Pydantic, que só aceita o valor exato `"em_andamento"` (com underscore),
+conforme definido no Enum `StatusTarefa`. Comportamento correto de validação,
+não um bug.
+
+---
+
+### 5.7 Validação cruzada final — Swagger e Postman
+
+Todas as 5 operações testadas nas duas ferramentas após a refatoração para
+Services, confirmando que a mudança de estrutura interna não alterou o
+comportamento externo da API (refatoração segura):
+
+| Operação | Swagger | Postman |
+|---|---|---|
+| GET (listar) | ✅ | ✅ |
+| POST (criar) | ✅ | ✅ |
+| PUT (atualização completa) | ✅ | ✅ |
+| PATCH (atualização parcial) | ✅ | ✅ (após corrigir valor do Enum) |
+| DELETE (remover) | ✅ | ✅ |
+
+---
+
+### Resumo da Sessão 5
+
+| Atividade | Status |
+|---|---|
+| Camada de Services criada (`tarefa_service.py`) | ✅ |
+| Rotas refatoradas para orquestrar, sem lógica de negócio direta | ✅ |
+| Imports não utilizados removidos da rota | ✅ |
+| Inconsistência `data_vencimento` (schema vs banco) identificada e corrigida | ✅ |
+| Campo `id` obrigatório por engano — confirmado corrigido | ✅ |
+| Validação cruzada Swagger + Postman para as 5 operações | ✅ |
+| Pendência de exceção própria de negócio (pré-front-end) registrada | ⏳ |
+
+---
+
+## Cronograma — Fechamento do Back-end (atualizado)
 
 | Dia | Data | Foco | Status |
 |---|---|---|---|
 | 1 | Ter, 23/06 | Dependency Injection | ✅ concluído (Sessão 4) |
 | 2 | Qua, 24/06 | CRUD — PUT e DELETE | ✅ concluído (Sessão 4, antecipado) |
-| 3 | Qui, 25/06 | CRUD — PATCH | ⏳ pendente |
-| 4 | Sex, 26/06 | Camada de Services | ⏳ pendente |
-| 5 | Sáb, 27/06 | Introdução ao Pytest | ⏳ pendente |
+| 3 | Qui, 25/06 | CRUD — PATCH | ✅ concluído (Sessão 4, antecipado) |
+| 4 | Sex, 26/06 | Camada de Services | ✅ concluído (Sessão 5, antecipado) |
+| 5 | Sáb, 27/06 | Introdução ao Pytest | ⏳ próximo passo |
 | 6 | Dom, 28/06 | Testes do CRUD | ⏳ pendente |
 | 7 | Seg, 29/06 | Revisão e fechamento | ⏳ pendente |
 
-> Os Dias 1 e 2 foram concluídos na mesma sessão (23/06), adiantando o
-> cronograma original.
+> Cronograma antecipado em relação ao plano original — Dias 2, 3 e 4
+> concluídos em sessões únicas. Próximo passo: introdução ao Pytest.
