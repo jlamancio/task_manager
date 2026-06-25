@@ -17,7 +17,7 @@ GitHub: https://github.com/jlamancio/task_manager
 | Testes front-end | Cypress | A definir no setup front-end |
 | Servidor | Uvicorn | 0.34.3 |
 | Ambiente | Node.js + npm | Node 22.22.3 / npm 10.9.8 |
-| Clientes de API | Postman / Insomnia | - |
+| Clientes de API | Postman / Insomnia | A mais atual |
 | Inspeção de banco | DB Browser for SQLite | 3.13.0 |
 | Versionamento | Git + GitHub | Git 2.51.0 |
 

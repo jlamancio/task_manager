@@ -275,6 +275,24 @@ separa a interação com a página (seletores) da lógica do teste.
 
 ---
 
+## 8.1 Terminologia formal de QA (ISTQB/ISO 29119-1)
+
+Distinções que geram imprecisão comum no mercado — vale usar o termo certo
+em entrevistas e documentação técnica.
+
+| Termo usado popularmente | Termo formalmente correto | Diferença |
+|---|---|---|
+| "Cenário de Teste" | **Condição de Teste** | "Cenário" não tem fundamentação na ISTQB/ISO 29119-1; é a ideia resumida do que testar (texto simples) |
+| (mesmo conceito, mais detalhado) | **Caso de Teste** | Artefato estruturado, derivado da condição, com dados exatos, entradas e resultado esperado |
+| "Eu escrevo testes em BDD" | **BDD é a metodologia; Gherkin é a sintaxe** | BDD (Behavior-Driven Development) é o guarda-chuva metodológico. Gherkin (`Dado/Quando/Então`) é uma sintaxe específica para praticar BDD, geralmente via Cucumber. Usar cenários Gherkin como se fossem casos de teste formais é considerado uma anomalia pela literatura de QA |
+
+**Exemplo de aplicação no projeto:**
+- Condição de Teste: "Deletar tarefa com `tarefa_id` inexistente"
+- Caso de Teste: `DELETE /v1/tarefas/9999` → espera 404, corpo
+  `{"detail": "Tarefa não encontrada"}`
+
+---
+
 ## 9. Ferramentas Externas
 
 **DB Browser for SQLite** — ferramenta visual para abrir e inspecionar
