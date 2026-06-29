@@ -1,6 +1,7 @@
-import pytest 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from database.db import Base, get_db
-from main import app
 
+
+def test_listar_tarefas_vazias(client):
+    resposta = client.get("/v1/tarefas/")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == []
