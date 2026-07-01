@@ -624,9 +624,263 @@ comportamento externo da API (refatoração segura):
 | 2 | Qua, 24/06 | CRUD — PUT e DELETE | ✅ concluído (Sessão 4, antecipado) |
 | 3 | Qui, 25/06 | CRUD — PATCH | ✅ concluído (Sessão 4, antecipado) |
 | 4 | Sex, 26/06 | Camada de Services | ✅ concluído (Sessão 5, antecipado) |
-| 5 | Sáb, 27/06 | Introdução ao Pytest | ⏳ próximo passo |
-| 6 | Dom, 28/06 | Testes do CRUD | ⏳ pendente |
+| 5 | Sáb, 27/06 | Introdução ao Pytest | ✅ setup concluído (Sessão 6) — primeiro teste passando |
+| 6 | Dom, 28/06 | Testes do CRUD | ⏳ próximo passo |
 | 7 | Seg, 29/06 | Revisão e fechamento | ⏳ pendente |
 
-> Cronograma antecipado em relação ao plano original — Dias 2, 3 e 4
-> concluídos em sessões únicas. Próximo passo: introdução ao Pytest.
+> Cronograma antecipado em relação ao plano original. Fase nova adicionada
+> (29/06): Autenticação (JWT), planejada como etapa própria após os testes
+> do back-end e antes do início do front-end.
+
+---
+
+## Sessão 6 — Setup do Pytest e Primeiro Teste Automatizado
+**Data:** 29/06/2026
+**Branch:** feature/tests
+
+---
+
+### 6.1 Por que parar antes do front-end para tratar Autenticação
+
+Antes de iniciar os testes, identificada uma lacuna de design: nenhuma rota
+(DELETE, PUT, PATCH, e até POST) exige autenticação — qualquer pessoa que
+souber a URL pode alterar dados. Decisão tomada: tratar Autenticação como
+uma **fase própria**, depois do back-end + testes, e **antes** do
+front-end — para que os testes de front-end já nasçam considerando login e
+token, sem precisar reescrever depois.
+
+**Motivo de não fazer agora:** autenticação é um sub-projeto completo
+(modelo de Usuário, hash de senha, JWT, rota de login, proteção de todas as
+rotas existentes) — introduzir isso junto com Pytest geraria sobrecarga de
+conceitos novos simultâneos. Pytest primeiro, num cenário mais simples,
+consolida o framework antes de aplicá-lo a um cenário autenticado (mais
+complexo de testar).
+
+---
+
+### 6.2 Plano de Testes formalizado
+
+Documento `PLANO_DE_TESTES.md` criado antes de escrever qualquer teste,
+definindo escopo, estratégia e a matriz de condições de teste. Decisões
+registradas lá:
+
+- **Camada testada:** Rotas, via `TestClient` (não Services isolados, por
+  ora — ver "Fora de Escopo" no documento).
+- **Isolamento de dados:** banco SQLite em memória, recriado a cada teste.
+- **Cobertura de status code:** todo cenário relevante cobre 200 (sucesso),
+  404 (não encontrado) e 422 (validação), exceto erros 500 — que nunca
+  devem ser o resultado esperado de um teste; representam falha não
+  tratada.
+
+**Nota terminológica aplicada:** o documento usa "Condição de Teste"
+(ISTQB/ISO 29119-1), não "Cenário de Teste" — ver `CONCEITOS.md` seção 8.1
+para a distinção completa, incluindo a diferença entre BDD (metodologia) e
+Gherkin (sintaxe).
+
+---
+
+### 6.3 Instalação do `httpx`
+
+O `TestClient` do FastAPI depende do `httpx` internamente.
+
+```bash
+pip install httpx==0.27.0
+pip freeze > requirements.txt
+```
+
+> Antes de instalar, pesquisa confirmou que a depreciação do `httpx` em
+> favor de um `httpx2` é recente (junho/2026) e afeta apenas versões mais
+> novas do FastAPI/Starlette — não o FastAPI 0.115.14 já travado neste
+> projeto. `httpx==0.27.0` é compatível e estável para nossa versão.
+
+---
+
+### 6.4 Incidente de Git — branch nascida de ponto desatualizado
+
+Durante a criação da branch `feature/tests`, o Explorer do VS Code mostrou
+as pastas de `app/` e `database/` aparentemente "vazias" (só `__init__.py`
+e `__pycache__`), gerando preocupação real de corrupção do projeto.
+
+**Causa raiz:** `main` estava desatualizado desde a Sessão 1 — os merges de
+PRs anteriores (#1, #2, #3) tinham ocorrido dentro da branch
+`feature/backend`, mas nunca chegaram a `main` de fato. Qualquer branch
+nova criada a partir de `main` nesse estado nascia sem o código real.
+
+**Nenhum arquivo foi perdido.** Todo o trabalho existia, commitado, em
+`feature/backend`. Resolvido com `git stash` (preservar mudança pendente em
+`requirements.txt`), correção do `main` via merge fast-forward, recriação
+da branch `feature/tests` do ponto certo, e `git stash pop` (com um
+pequeno conflito de merge em `requirements.txt`, resolvido mantendo ambas
+as dependências necessárias).
+
+**Documentação dedicada gerada para este incidente:**
+- `HISTORICO_INCIDENTE_GIT.md` — narrativa completa do diagnóstico e
+  recuperação, com as lições registradas.
+- `REFERENCIA_COMANDOS_GIT.md` — comandos usados, organizados por
+  finalidade, sem repetição.
+
+**Lição mais importante:** antes de criar qualquer branch nova, confirmar
+com `git log --oneline -5` que o ponto de partida está atualizado.
+
+---
+
+### 6.5 Conceitos consolidados nesta sessão
+
+**`@pytest.fixture`** — decorator que registra uma função no catálogo de
+preparações que o Pytest pode entregar a um teste. Mecanismo de "busca por
+nome": se um teste (ou outra fixture) tem um parâmetro chamado `db_session`,
+o Pytest procura uma fixture com exatamente esse nome e a executa antes,
+entregando o resultado como valor do parâmetro.
+
+**`conftest.py`** — arquivo de nome reservado pelo Pytest; toda fixture
+definida nele fica disponível automaticamente para qualquer teste na mesma
+pasta (e subpastas), sem import explícito.
+
+**Encadeamento de fixtures** — uma fixture pode depender de outra, só por
+ter um parâmetro com o nome dela (`def client(db_session):`). O Pytest
+resolve a cadeia: primeiro roda `db_session`, depois entrega o resultado
+para `client` usar.
+
+**`TestClient`** — simula requisições HTTP sem precisar de um servidor
+Uvicorn rodando de fato; conversa direto com o objeto `app` em memória.
+Mesma API de uso que Postman/Swagger (`client.get(...)`, `client.post(...)`),
+mas em código Python, dentro do teste.
+
+**Dependency Override (`app.dependency_overrides`)** — dicionário que o
+FastAPI consulta antes de resolver qualquer `Depends(...)`. Permite
+substituir `get_db` (que aponta para o banco real) por uma função substituta
+que entrega a sessão de teste, sem que a rota "saiba" da substituição.
+Resumo da relação:
+
+| Em produção | Durante o teste |
+|---|---|
+| Rota pede `Depends(get_db)` | Rota pede `Depends(get_db)` (sem mudança no código da rota) |
+| FastAPI chama `get_db()` de verdade | FastAPI consulta `dependency_overrides`, encontra a substituição, chama `override_get_db()` no lugar |
+| Sessão do banco real | Sessão do banco de teste, em memória |
+
+`app.dependency_overrides.clear()` ao final da fixture remove a
+substituição, evitando que ela "vaze" para outros testes.
+
+---
+
+### 6.6 Bug real encontrado e resolvido: SQLite em memória precisa de `StaticPool`
+
+**Sintoma:** primeiro teste falhando com
+`sqlite3.OperationalError: no such table: tarefas`, mesmo com
+`Base.metadata.create_all(bind=engine)` presente na fixture.
+
+**Hipóteses descartadas, em ordem, cada uma testada antes de descartar:**
+1. Import de `TarefaDB` faltando no `conftest.py` — corrigido, erro
+   persistiu.
+2. URL da requisição sem barra final (`/v1/tarefas` em vez de
+   `/v1/tarefas/`) — corrigido, erro persistiu.
+3. Referências duplicadas/diferentes de `get_db` entre rota e teste —
+   descartada após comparar os imports lado a lado: eram idênticos.
+
+**Método de isolamento usado:** rodar a lógica de criação de tabela e
+consulta **fora** do Pytest e do FastAPI, via `python -c`, para confirmar
+que SQLAlchemy e o modelo `TarefaDB` funcionavam isoladamente (funcionaram).
+Depois, reproduzir o `dependency_override` manualmente, também fora do
+Pytest, para isolar se o problema era do framework de testes ou da conexão
+ao banco (erro se repetiu — eliminou o Pytest como causa).
+
+**Causa raiz confirmada:** SQLite com `sqlite:///:memory:` cria um banco
+**por conexão**, não por processo. Sem controle explícito, o SQLAlchemy
+pode abrir uma conexão nova quando a rota usa a sessão — diferente da
+conexão usada para `Base.metadata.create_all()` — caindo em um banco em
+memória **diferente**, vazio, sem a tabela.
+
+**Correção:** adicionar `poolclass=StaticPool` ao `create_engine`, forçando
+o SQLAlchemy a reutilizar sempre a mesma conexão para aquele engine.
+
+```python
+from sqlalchemy.pool import StaticPool
+
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+```
+
+Confirmado primeiro via script manual (`python -c`) antes de aplicar no
+`conftest.py` — `STATUS: 200`, `BODY: []`.
+
+---
+
+### 6.7 Arquivos finais desta sessão
+
+**`tests/conftest.py`:**
+```python
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from database.db import Base
+from app.models.tarefa_db import TarefaDB
+from fastapi.testclient import TestClient
+from database.db import get_db
+from main import app
+
+
+@pytest.fixture
+def db_session():
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    Base.metadata.create_all(bind=engine)
+
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+@pytest.fixture
+def client(db_session):
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+```
+
+**`tests/test_tarefas.py`:**
+```python
+def test_listar_tarefas_vazias(client):
+    resposta = client.get("/v1/tarefas/")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == []
+```
+
+**Resultado da execução:**
+```
+collected 1 item
+tests/test_tarefas.py::test_listar_tarefas_vazias PASSED          [100%]
+1 passed in 0.02s
+```
+
+Corresponde à condição **G1** do `PLANO_DE_TESTES.md`.
+
+---
+
+### Resumo da Sessão 6
+
+| Atividade | Status |
+|---|---|
+| Decisão de adiar Autenticação para fase própria, pré-front-end | ✅ |
+| `PLANO_DE_TESTES.md` formalizado, com terminologia ISTQB correta | ✅ |
+| `httpx` instalado | ✅ |
+| Incidente de Git (branch desatualizada) diagnosticado e resolvido, sem perda de trabalho | ✅ |
+| `conftest.py` com fixtures `db_session` e `client` funcionando | ✅ |
+| Bug real do `StaticPool` identificado e corrigido | ✅ |
+| Primeiro teste automatizado (G1) passando | ✅ |
+| Conceitos de fixture, conftest, TestClient e dependency override revisados em profundidade — compreensão ainda em consolidação, releitura programada antes de prosseguir | ⏳ |

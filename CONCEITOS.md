@@ -322,3 +322,80 @@ sincronizar, não há nada novo para trazer.
 
 **Quando fazer um commit?** Quando o código representa uma unidade de
 trabalho completa e coerente — não em qualquer parada no meio do caminho.
+
+---
+
+## 11. Pytest — fixtures, conftest e dependency override
+
+**`@pytest.fixture`** — decorator que marca uma função como "preparação
+reutilizável". Não é um teste; é algo que um teste (ou outra fixture) pode
+pedir.
+
+**Mecanismo de busca por nome (o ponto mais importante e mais fácil de
+confundir):** quando uma função de teste tem um parâmetro, ex.
+`def test_x(client):`, o Pytest não está passando um valor comum — ele
+procura, no catálogo de fixtures conhecidas, uma com o nome exato `client`,
+executa ela, e entrega o que ela devolveu (via `return` ou `yield`) como
+valor desse parâmetro. O nome do parâmetro **precisa ser idêntico**, letra
+por letra, ao nome da fixture.
+
+**Analogia:** é como gritar um nome num evento — quem tem aquele nome no
+crachá responde. `def client(db_session):` "grita" por uma fixture chamada
+`db_session`; o Pytest a executa primeiro e entrega o resultado.
+
+**Encadeamento de fixtures** — uma fixture pode depender de outra, do mesmo
+jeito que um teste depende de uma fixture (por nome de parâmetro). No
+projeto: `client` depende de `db_session` — o Pytest resolve a ordem
+automaticamente (primeiro `db_session`, depois `client`).
+
+**`conftest.py`** — arquivo de nome reservado pelo Pytest. Toda fixture
+definida ali fica disponível para qualquer teste na mesma pasta (e
+subpastas), sem precisar de import explícito nos arquivos `test_*.py`.
+
+**`TestClient`** — simula requisições HTTP sem precisar de um servidor
+Uvicorn rodando de fato. Recebe o mesmo objeto `app` que o servidor real
+usaria; conversa direto com ele em memória. Mesma API de uso que
+Postman/Swagger (`client.get(...)`, `client.post(...)`, etc.), só que em
+código Python dentro do teste.
+
+**Dependency Override (`app.dependency_overrides`)** — dicionário que o
+FastAPI consulta antes de resolver qualquer `Depends(...)`. Permite
+substituir uma dependência (ex. `get_db`, que aponta para o banco real) por
+outra função (ex. `override_get_db`, que entrega a sessão de teste) — sem
+que a rota precise saber da substituição.
+
+```python
+def override_get_db():
+    yield db_session
+
+app.dependency_overrides[get_db] = override_get_db
+```
+
+A "chave" do dicionário é a própria função `get_db` (funções podem ser
+chaves em Python). `app.dependency_overrides.clear()` ao final remove a
+substituição, para não vazar para outros testes.
+
+**SQLite em memória precisa de `StaticPool` (bug real encontrado em
+projeto):** `sqlite:///:memory:` cria um banco **por conexão**, não por
+processo. Sem `poolclass=StaticPool` no `create_engine`, o SQLAlchemy pode
+abrir uma conexão nova ao usar a sessão — diferente da conexão usada para
+criar as tabelas — resultando em `no such table` mesmo com
+`Base.metadata.create_all()` correto.
+
+```python
+from sqlalchemy.pool import StaticPool
+
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+```
+
+**Por que a tabela "desaparece" sem esse parâmetro, mesmo com o import do
+modelo correto:** `Base.metadata` só conhece uma tabela depois que o
+arquivo que define o modelo ORM (ex. `tarefa_db.py`) é importado em algum
+ponto da execução — daí a necessidade de `from app.models.tarefa_db import
+TarefaDB` no `conftest.py`, mesmo sem usar `TarefaDB` diretamente ali.
+
+---

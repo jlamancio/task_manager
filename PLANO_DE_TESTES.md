@@ -70,10 +70,10 @@ isso evitado neste documento.
 
 ### 3.1 GET /v1/tarefas/
 
-| # | Condição de Teste | Código esperado |
-|---|---|---|
-| G1 | Listar tarefas com banco vazio | 200 (lista vazia `[]`) |
-| G2 | Listar tarefas com 1 ou mais registros | 200 (lista com os registros) |
+| # | Condição de Teste | Código esperado | Status |
+|---|---|---|---|
+| G1 | Listar tarefas com banco vazio | 200 (lista vazia `[]`) | ✅ implementado (29/06) |
+| G2 | Listar tarefas com 1 ou mais registros | 200 (lista com os registros) | ⏳ pendente |
 
 ### 3.2 POST /v1/tarefas/
 
