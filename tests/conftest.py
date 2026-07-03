@@ -33,3 +33,18 @@ def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def tarefa_criada(client):
+    resposta = client.post(
+        "/v1/tarefas/",
+        json={
+            "titulo": "Criacao de registro para teste",
+            "descricao": "Deleção de registro válido",
+            "status": "pendente",
+            "prioridade": "alta",
+            "data_vencimento": "2026-12-31",
+        },
+    )
+    return resposta.json()

@@ -884,3 +884,155 @@ Corresponde à condição **G1** do `PLANO_DE_TESTES.md`.
 | Bug real do `StaticPool` identificado e corrigido | ✅ |
 | Primeiro teste automatizado (G1) passando | ✅ |
 | Conceitos de fixture, conftest, TestClient e dependency override revisados em profundidade — compreensão ainda em consolidação, releitura programada antes de prosseguir | ⏳ |
+
+---
+
+## Sessão 7 — Testes completos, refatoração e fixture tarefa_criada
+**Data:** 03/07/2026
+**Branch:** feature/tests
+
+---
+
+### 7.1 Conclusão da Matriz de Condições de Teste
+
+Todos os 19 casos de teste implementados e passando:
+
+- **GET:** G1 (banco vazio), G2 (com registros)
+- **POST:** P1 (sucesso), P2-P5 (422 por campo inválido/faltando), P6 (N/A)
+- **PUT:** U1 (sucesso), U2 (404), U3-U4 (422)
+- **PATCH:** A1-A2 (sucesso parcial), A3 (404), A4 (corpo vazio), A5 (422)
+- **DELETE:** D1 (sucesso), D2 (404), D3 (deletar duas vezes)
+- **Fluxo completo:** F1 (POST → GET → PATCH → GET → DELETE → GET)
+
+**P6 marcado como N/A:** o comportamento de "criar sem id" já é garantido pela
+correção do schema (`id: int | None = None`) — criar um teste redundante não
+adicionaria valor.
+
+---
+
+### 7.2 Padrão importante descoberto na prática
+
+**Quando precisar criar dado antes do teste:**
+
+| Tipo de teste | Precisa de POST antes? | Por quê |
+|---|---|---|
+| Sucesso em operação por id (PUT, PATCH, DELETE válido) | ✅ Sim | O dado precisa existir no banco |
+| 404 (id inexistente) | ❌ Não | Banco vazio garante que o id não existe |
+| 422 (validação de entrada) | ❌ Não | Pydantic rejeita antes de consultar o banco |
+
+**Ordem de precedência:** Pydantic valida **antes** do banco. Um PUT com
+`status` inválido e `tarefa_id` inexistente resulta em **422**, não 404 —
+porque o Pydantic barra na entrada antes de qualquer consulta. Isso é uma
+característica do FastAPI/Pydantic, não universal — em outros frameworks a
+ordem poderia ser diferente.
+
+---
+
+### 7.3 Fixture `tarefa_criada`
+
+Criada para eliminar a repetição do bloco de POST dentro de múltiplos testes:
+
+```python
+@pytest.fixture
+def tarefa_criada(client):
+    resposta = client.post(
+        "/v1/tarefas/",
+        json={
+            "titulo": "Criacao de registro para teste",
+            "descricao": "Deleção de registro válido",
+            "status": "pendente",
+            "prioridade": "alta",
+            "data_vencimento": "2026-12-31",
+        },
+    )
+    return resposta.json()
+```
+
+**`return` e não `yield`** — porque não há limpeza necessária depois do
+teste. A tarefa criada some automaticamente quando o banco em memória é
+destruído ao final do teste (via `db_session`).
+
+**Uso nos testes:**
+```python
+def test_atualizar_tarefa_existente_com_campos_validos(client, tarefa_criada):
+    tarefa_id = tarefa_criada["id"]  # definir na primeira linha, usar onde precisar
+    ...
+```
+
+**Por que não criar uma fixture `tarefa_id`** para evitar repetir
+`tarefa_criada["id"]`: seria transferir complexidade de lugar, não eliminá-la.
+Uma linha simples e legível repetida em alguns testes é preferível a uma
+fixture desnecessária. Fixtures existem para eliminar **complexidade**
+repetida, não **linhas** repetidas.
+
+---
+
+### 7.4 f-strings Python — descoberta prática
+
+Erro cometido ao escrever o endpoint no teste:
+
+```python
+# ❌ Errado — 'f' dentro da string, não antes das aspas
+f"/v1/tarefas/f{tarefa_id}"   # gera URL como /v1/tarefas/f1
+
+# ✅ Correto
+f"/v1/tarefas/{tarefa_id}"
+```
+
+**Comparação com JavaScript (causa da confusão):**
+
+| Linguagem | Template literal |
+|---|---|
+| Python | `f"/v1/tarefas/{tarefa_id}"` — `f` antes das aspas |
+| JavaScript | `` `/v1/tarefas/${tarefaId}` `` — `$` antes das chaves, backtick |
+
+---
+
+### 7.5 Lições sobre assert nos testes
+
+- **Teste sem `assert` sempre passa** — o Pytest não tem como falhar se não
+  há verificação. É um falso positivo garantido.
+- **`assert resposta.json() == []`** — só faz sentido depois do DELETE, quando
+  o banco está de fato vazio. Antes disso, o assert correto é verificar o
+  conteúdo da lista.
+- **`assert resposta.json()` (sem comparação)** — qualquer dicionário não-vazio
+  é `True` em Python. Não verifica nada útil — preferir `assert "detail" in
+  resposta.json()` ou `assert resposta.status_code == 422`.
+
+---
+
+### 7.6 pytest-html e relatório
+
+```bash
+pip install pytest-html
+python -m pytest -v --html=report.html
+```
+
+Gera `report.html` — abre no navegador com detalhes de cada teste, tempo de
+execução e status.
+
+`report.html` e a pasta `assets/` (gerada automaticamente) adicionados ao
+`.gitignore` — são artefatos gerados, não código fonte.
+
+---
+
+### 7.7 Documentação reorganizada
+
+- `REFERENCIA_COMANDOS_GIT.md` absorvido pelo novo `REFERENCIA_COMANDOS.md`
+- `REFERENCIA_COMANDOS.md` unificado com 4 seções: Git, Bash, Python, Pytest
+- `PLANO_DE_TESTES.md` atualizado — todas as condições marcadas como ✅
+- `CONCEITOS.md` atualizado — f-strings, fixture `return` vs `yield`
+
+---
+
+### Resumo da Sessão 7
+
+| Atividade | Status |
+|---|---|
+| 19 testes implementados — 100% da matriz coberta | ✅ |
+| Fixture `tarefa_criada` criada e aplicada | ✅ |
+| pytest-html instalado, report.html no .gitignore | ✅ |
+| Lições sobre assert registradas | ✅ |
+| f-strings Python vs template literals JS esclarecido | ✅ |
+| Documentação reorganizada (REFERENCIA_COMANDOS.md unificado) | ✅ |
+| Back-end considerado **fechado** — próxima fase: Autenticação (JWT) | ✅ |
