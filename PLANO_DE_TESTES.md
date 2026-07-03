@@ -61,77 +61,75 @@ o objetivo dos testes é garantir que cenários problemáticos sempre caiam em
 
 ## 3. Matriz de Condições de Teste
 
-Seguindo a terminologia formalmente reconhecida pela ISTQB/ISO 29119-1: o que
-está listado abaixo são **Condições de Teste** — a ideia resumida do que
-testar. Cada linha será detalhada como um **Caso de Teste** na implementação
-(seção 4), com dados concretos, payload exato e assert exato. "Cenário de
-Teste" é um termo popular, sem fundamentação formal nesses padrões, e por
-isso evitado neste documento.
-
 ### 3.1 GET /v1/tarefas/
 
 | # | Condição de Teste | Código esperado | Status |
 |---|---|---|---|
-| G1 | Listar tarefas com banco vazio | 200 (lista vazia `[]`) | ✅ implementado (29/06) |
-| G2 | Listar tarefas com 1 ou mais registros | 200 (lista com os registros) | ⏳ pendente |
+| G1 | Listar tarefas com banco vazio | 200 (lista vazia `[]`) | ✅ |
+| G2 | Listar tarefas com 1 ou mais registros | 200 (lista com os registros) | ✅ |
 
 ### 3.2 POST /v1/tarefas/
 
-| # | Condição de Teste | Código esperado |
-|---|---|---|
-| P1 | Criar tarefa com todos os campos obrigatórios válidos | 200, retorna `id` gerado |
-| P2 | Criar tarefa sem `titulo` (campo obrigatório faltando) | 422 |
-| P3 | Criar tarefa sem `data_vencimento` (obrigatório desde a Sessão 5) | 422 |
-| P4 | Criar tarefa com `status` inválido (ex: `"feito"`, fora do Enum) | 422 |
-| P5 | Criar tarefa com `prioridade` inválida | 422 |
-| P6 | Criar tarefa sem enviar `id` (deve funcionar — `id` é opcional/gerado) | 200 |
+| # | Condição de Teste | Código esperado | Status |
+|---|---|---|---|
+| P1 | Criar tarefa com todos os campos obrigatórios válidos | 200, retorna `id` gerado | ✅ |
+| P2 | Criar tarefa sem `titulo` (campo obrigatório faltando) | 422 | ✅ |
+| P3 | Criar tarefa sem `data_vencimento` (obrigatório desde a Sessão 5) | 422 | ✅ |
+| P4 | Criar tarefa com `status` inválido (ex: `"feito"`, fora do Enum) | 422 | ✅ |
+| P5 | Criar tarefa com `prioridade` inválida | 422 | ✅ |
+| P6 | Criar tarefa sem enviar `id` | 200 | N/A — comportamento já garantido pela correção do schema (`id: int \| None = None`) |
 
 ### 3.3 PUT /v1/tarefas/{tarefa_id}
 
-| # | Condição de Teste | Código esperado |
-|---|---|---|
-| U1 | Atualizar tarefa existente com todos os campos válidos | 200, campos refletem o novo valor |
-| U2 | Atualizar tarefa com `tarefa_id` inexistente | 404 |
-| U3 | Atualizar tarefa existente sem `titulo` (obrigatório no schema `Tarefa`) | 422 |
-| U4 | Atualizar tarefa existente com `status` inválido | 422 |
+| # | Condição de Teste | Código esperado | Status |
+|---|---|---|---|
+| U1 | Atualizar tarefa existente com todos os campos válidos | 200, campos refletem o novo valor | ✅ |
+| U2 | Atualizar tarefa com `tarefa_id` inexistente | 404 | ✅ |
+| U3 | Atualizar tarefa existente sem `titulo` (obrigatório no schema `Tarefa`) | 422 | ✅ |
+| U4 | Atualizar tarefa existente com `status` inválido | 422 | ✅ |
 
 ### 3.4 PATCH /v1/tarefas/{tarefa_id}
 
-| # | Condição de Teste | Código esperado |
-|---|---|---|
-| A1 | Atualizar parcialmente só um campo (ex: `status`) em tarefa existente | 200, **só** aquele campo muda |
-| A2 | Atualizar parcialmente vários campos ao mesmo tempo | 200, todos os campos enviados mudam |
-| A3 | Atualizar parcialmente com `tarefa_id` inexistente | 404 |
-| A4 | Enviar corpo vazio `{}` (nenhum campo) | 200, nenhum campo muda |
-| A5 | Enviar valor de Enum inválido (ex: `"em andamento"` com espaço) | 422 |
+| # | Condição de Teste | Código esperado | Status |
+|---|---|---|---|
+| A1 | Atualizar parcialmente só um campo (ex: `status`) em tarefa existente | 200, **só** aquele campo muda | ✅ |
+| A2 | Atualizar parcialmente vários campos ao mesmo tempo | 200, todos os campos enviados mudam | ✅ |
+| A3 | Atualizar parcialmente com `tarefa_id` inexistente | 404 | ✅ |
+| A4 | Enviar corpo vazio `{}` (nenhum campo) | 200, nenhum campo muda | ✅ |
+| A5 | Enviar valor de Enum inválido (ex: `"em andamento"` com espaço) | 422 | ✅ |
 
 ### 3.5 DELETE /v1/tarefas/{tarefa_id}
 
-| # | Condição de Teste | Código esperado |
-|---|---|---|
-| D1 | Deletar tarefa existente | 200, mensagem de sucesso |
-| D2 | Deletar `tarefa_id` inexistente | 404 |
-| D3 | Deletar a mesma tarefa duas vezes (segunda chamada) | 200 na primeira, 404 na segunda |
+| # | Condição de Teste | Código esperado | Status |
+|---|---|---|---|
+| D1 | Deletar tarefa existente | 200, mensagem de sucesso | ✅ |
+| D2 | Deletar `tarefa_id` inexistente | 404 | ✅ |
+| D3 | Deletar a mesma tarefa duas vezes (segunda chamada) | 200 na primeira, 404 na segunda | ✅ |
 
 ### 3.6 Condição de teste de integração (fluxo completo)
 
-| # | Condição de Teste | Código esperado |
-|---|---|---|
-| F1 | Criar → Listar (aparece) → Atualizar (PATCH) → Listar (mudança refletida) → Deletar → Listar (não aparece mais) | 200 em cada etapa, dado refletido corretamente a cada passo |
+| # | Condição de Teste | Código esperado | Status |
+|---|---|---|---|
+| F1 | Criar → Listar (aparece) → Atualizar (PATCH) → Listar (mudança refletida) → Deletar → Listar (não aparece mais) | 200 em cada etapa, dado refletido corretamente | ✅ |
 
 ---
 
-## 4. Estrutura de implementação prevista
+## 4. Estrutura de implementação
 
 ```
 tests/
 ├── __init__.py
-├── conftest.py          → fixtures compartilhadas (banco em memória, TestClient)
-└── test_tarefas.py       → os casos de teste da matriz acima
+├── conftest.py          → fixtures: db_session, client, tarefa_criada
+└── test_tarefas.py      → 19 casos de teste cobrindo toda a matriz
 ```
 
-`conftest.py` é o arquivo onde o Pytest procura fixtures automaticamente,
-sem precisar de import explícito em cada arquivo de teste.
+**Fixtures disponíveis em `conftest.py`:**
+
+| Fixture | Tipo | O que entrega |
+|---|---|---|
+| `db_session` | `yield` | Sessão do banco SQLite em memória (recriado a cada teste) |
+| `client` | `yield` | TestClient com dependency override do banco de teste |
+| `tarefa_criada` | `return` | JSON da tarefa criada via POST (para testes que precisam de dado existente) |
 
 ---
 
@@ -147,11 +145,16 @@ sem precisar de import explícito em cada arquivo de teste.
 
 ---
 
-## 6. Critério de conclusão desta fase
+## 6. Resultado final
 
-Considera-se esta fase de testes concluída quando:
-- Todos os cenários da Matriz (seção 3) estiverem implementados e passando.
-- `pytest` executado na raiz do projeto retornar sucesso para 100% dos casos.
-- O resultado for registrado no `GUIDE.md`, incluindo eventuais bugs reais
-  encontrados durante a escrita dos testes (como já ocorreu antes com a
-  inconsistência de `data_vencimento`).
+**19 testes implementados, 19 passando — 100% da matriz coberta.**
+
+```
+19 passed in 0.24s
+```
+
+Condições notáveis identificadas durante a implementação:
+- `data_criacao` estava obrigatório no schema (422 inesperado no POST) — corrigido para `datetime | None = None`
+- `StaticPool` necessário para SQLite em memória — sem ele, `create_all()` e a sessão usam conexões diferentes
+- Pydantic valida **antes** da consulta ao banco — 422 tem precedência sobre 404 quando ambos poderiam ocorrer
+- Teste passando com assert ausente é falso positivo — todo teste precisa de pelo menos um `assert`

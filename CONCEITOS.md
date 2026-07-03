@@ -392,10 +392,51 @@ engine = create_engine(
 )
 ```
 
-**Por que a tabela "desaparece" sem esse parâmetro, mesmo com o import do
-modelo correto:** `Base.metadata` só conhece uma tabela depois que o
-arquivo que define o modelo ORM (ex. `tarefa_db.py`) é importado em algum
-ponto da execução — daí a necessidade de `from app.models.tarefa_db import
-TarefaDB` no `conftest.py`, mesmo sem usar `TarefaDB` diretamente ali.
+**`return` vs `yield` em fixtures — a regra definitiva:**
+
+| Situação | Use |
+|---|---|
+| Fixture só entrega um dado, sem limpeza necessária depois | `return` |
+| Fixture precisa fechar conexão, limpar estado, deletar arquivo após o teste | `yield` |
+
+Exemplos do projeto:
+- `tarefa_criada` → `return resposta.json()` (só entrega dado)
+- `db_session` → `yield session` + `session.close()` no `finally`
+- `client` → `yield TestClient(app)` + `app.dependency_overrides.clear()`
+
+**Quando criar uma fixture extra vs aceitar repetição:**
+Fixtures existem para eliminar **complexidade** repetida, não **linhas**
+repetidas. Uma linha simples como `tarefa_id = tarefa_criada["id"]` repetida
+em alguns testes é preferível a criar uma fixture `tarefa_id` que só
+transfere complexidade de lugar.
+
+---
+
+## 12. f-strings (template literals) em Python
+
+**f-string** — string prefixada com `f` que interpola variáveis dentro de
+`{}`:
+
+```python
+tarefa_id = 1
+url = f"/v1/tarefas/{tarefa_id}"  # resultado: "/v1/tarefas/1"
+```
+
+**O `f` precisa estar ANTES das aspas** — dentro da string é texto literal:
+
+```python
+# ❌ Errado — gera "/v1/tarefas/f1"
+url = f"/v1/tarefas/f{tarefa_id}"
+
+# ✅ Correto
+url = f"/v1/tarefas/{tarefa_id}"
+```
+
+**Comparação com JavaScript:**
+
+| Python | JavaScript |
+|---|---|
+| `f"/v1/tarefas/{tarefa_id}"` | `` `/v1/tarefas/${tarefaId}` `` |
+| `f` antes das aspas | backtick + `$` antes das chaves |
 
 ---
