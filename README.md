@@ -13,11 +13,11 @@ GitHub: https://github.com/jlamancio/task_manager
 | Back-end | Python + FastAPI | Python 3.12.9 / FastAPI 0.115.14 |
 | Banco de dados | SQLite + SQLAlchemy | SQLAlchemy 2.0.36 |
 | Front-end | HTML + CSS + JavaScript puro | - |
-| Testes back-end | Pytest | 8.3.5 |
+| Testes back-end | Pytest + httpx (TestClient) | Pytest 8.3.5 / httpx 0.27.0 |
 | Testes front-end | Cypress | A definir no setup front-end |
 | Servidor | Uvicorn | 0.34.3 |
 | Ambiente | Node.js + npm | Node 22.22.3 / npm 10.9.8 |
-| Clientes de API | Postman / Insomnia | A mais atual |
+| Clientes de API | Postman / Insomnia | - |
 | Inspeção de banco | DB Browser for SQLite | 3.13.0 |
 | Versionamento | Git + GitHub | Git 2.51.0 |
 
@@ -100,6 +100,20 @@ Depois de subir, acesse:
 
 ---
 
+## Rodando os testes
+
+Os testes usam um banco SQLite em memória, isolado do banco real
+(`task_manager.db`) — não é necessário a API estar rodando.
+
+```bash
+python -m pytest -v
+```
+
+Ver `PLANO_DE_TESTES.md` para a matriz completa de condições de teste
+planejadas, e `GUIDE.md` (Sessão 6) para detalhes de configuração.
+
+---
+
 ## Estrutura do Projeto
 
 ```
@@ -156,7 +170,8 @@ task_manager/
 - [x] CRUD completo (GET, POST, PUT, PATCH, DELETE)
 - [x] Camada de Services (lógica de negócio fora das rotas)
 - [x] Validação cruzada via Swagger e Postman
-- [ ] Testes automatizados com Pytest
+- [x] Testes automatizados com Pytest — 19 testes, 100% da matriz coberta
+- [ ] Autenticação (JWT) — fase própria, antes do front-end
 - [ ] Etapa 2 — Front-end: Páginas + Testes (Cypress)
 
 ---
