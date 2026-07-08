@@ -21,8 +21,8 @@ class Tarefa(BaseModel):
     descricao: str | None = None
     status: StatusTarefa = StatusTarefa.pendente
     prioridade: PrioridadeTarefa = PrioridadeTarefa.media
-    data_criacao: datetime
-    data_vencimento: date 
+    data_criacao: datetime | None = None
+    data_vencimento: date
 
 
 class TarefaPatch(BaseModel):
