@@ -31,6 +31,7 @@ pytest==8.3.5
 pytest-html==4.2.0
 pytest-metadata==3.1.1
 python-jose==3.3.0
+python-multipart==0.0.20
 pytokens==0.4.1
 rsa==4.9.1
 six==1.17.0
