@@ -34,36 +34,36 @@ recriado a cada teste — mesmo padrão já adotado nos testes de Tarefas.
 
 | # | Condição de Teste | Código esperado | Status |
 |---|---|---|---|
-| C1 | Cadastrar usuário com email e senha válidos | 200 — retorna `id` e `email` (sem senha_hash) | ⏳ |
-| C2 | Cadastrar com email já existente | 400 — "Email já cadastrado" | ⏳ |
-| C3 | Cadastrar sem `email` | 422 | ⏳ |
-| C4 | Cadastrar sem `senha` | 422 | ⏳ |
+| C1 | Cadastrar usuário com email e senha válidos | 200 — retorna `id` e `email` (sem senha_hash) | ✅ |
+| C2 | Cadastrar com email já existente | 400 — "Email já cadastrado" | ✅ |
+| C3 | Cadastrar sem `email` | 422 | ✅ |
+| C4 | Cadastrar sem `senha` | 422 | ✅ |
 
 ### 3.2 POST /auth/login
 
 | # | Condição de Teste | Código esperado | Status |
 |---|---|---|---|
-| L1 | Login com credenciais válidas | 200 — retorna `access_token` e `token_type` | ⏳ |
-| L2 | Login com email inexistente | 401 — "Email ou senha inválidos" | ⏳ |
-| L3 | Login com senha incorreta | 401 — "Email ou senha inválidos" | ⏳ |
-| L4 | Login sem `username` | 422 | ⏳ |
-| L5 | Login sem `password` | 422 | ⏳ |
+| L1 | Login com credenciais válidas | 200 — retorna `access_token` e `token_type` | ✅ |
+| L2 | Login com email inexistente | 401 — "Email ou senha inválidos" | ✅ |
+| L3 | Login com senha incorreta | 401 — "Email ou senha inválidos" | ✅ |
+| L4 | Login sem `username` | 422 | ✅ |
+| L5 | Login sem `password` | 422 | ✅ |
 
 ### 3.3 Proteção das rotas de Tarefas
 
 | # | Condição de Teste | Código esperado | Status |
 |---|---|---|---|
-| P1 | Acessar GET /v1/tarefas/ sem token | 401 — "Not authenticated" | ⏳ |
-| P2 | Acessar GET /v1/tarefas/ com token válido | 200 | ⏳ |
-| P3 | Acessar GET /v1/tarefas/ com token inválido (adulterado) | 401 — "Token inválido" | ⏳ |
-| P4 | Acessar GET /v1/tarefas/ com token expirado | 401 — "Token inválido" | ⏳ |
+| P1 | Acessar GET /v1/tarefas/ sem token | 401 — "Not authenticated" | ✅ |
+| P2 | Acessar GET /v1/tarefas/ com token válido | 200 | ✅ |
+| P3 | Acessar GET /v1/tarefas/ com token inválido (adulterado) | 401 — "Token inválido" | ✅ |
+| P4 | Acessar GET /v1/tarefas/ com token expirado | 401 — "Token inválido" | ✅ |
 
 ### 3.4 Segurança
 
 | # | Condição de Teste | Código esperado | Status |
 |---|---|---|---|
-| S1 | Verificar que `senha_hash` não aparece na resposta do cadastro | 200 — resposta só tem `id` e `email` | ⏳ |
-| S2 | Verificar que a mensagem de erro é genérica no login (não revela se é email ou senha incorretos) | 401 — mesma mensagem para email inexistente e senha incorreta | ⏳ |
+| S1 | Verificar que `senha_hash` não aparece na resposta do cadastro | 200 — resposta só tem `id` e `email` | ✅ |
+| S2 | Verificar que a mensagem de erro é genérica no login (não revela se é email ou senha incorretos) | 401 — mesma mensagem para email inexistente e senha incorreta | ✅ |
 
 ---
 
@@ -158,3 +158,24 @@ Considera-se esta fase de testes concluída quando:
 - Todas as 14 condições de teste estiverem implementadas e passando
 - `pytest` retornar sucesso para 100% dos casos
 - Resultado registrado no `GUIDE.md`
+
+---
+
+## 8. Resultado final
+
+**15 testes implementados, 15 passando — 100% da matriz coberta.**
+
+```
+15 passed in 1.79s
+```
+
+**Warning registrado (não corrigido intencionalmente):**
+```
+jose\jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated
+```
+Problema interno da biblioteca `python-jose` — aguardar atualização.
+
+**Ajuste necessário em `criar_token`** para suportar o teste P4 (token expirado):
+```python
+def criar_token(dados: dict, expires_delta: timedelta = None) -> str:
+```

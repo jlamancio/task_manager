@@ -1,9 +1,6 @@
 from datetime import timedelta
 from app.services.auth_service import criar_token
 
-
-
-
 def test_cadastrar_usuario_valido(client):
     resposta = client.post(
         "/auth/cadastro", json={"email": "novo@teste.com", "senha": "123456"}

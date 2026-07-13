@@ -170,8 +170,9 @@ task_manager/
 - [x] CRUD completo (GET, POST, PUT, PATCH, DELETE)
 - [x] Camada de Services (lógica de negócio fora das rotas)
 - [x] Validação cruzada via Swagger e Postman
-- [x] Testes automatizados com Pytest — 19 testes, 100% da matriz coberta
-- [ ] Autenticação (JWT) — fase própria, antes do front-end
+- [x] Testes automatizados com Pytest — 19 testes CRUD + 15 testes Auth
+- [x] Autenticação (JWT) — cadastro, login, proteção das rotas
+- [ ] Correção dos testes de tarefas (quebrados após proteção com JWT)
 - [ ] Etapa 2 — Front-end: Páginas + Testes (Cypress)
 
 ---

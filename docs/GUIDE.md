@@ -1036,3 +1036,181 @@ execução e status.
 | f-strings Python vs template literals JS esclarecido | ✅ |
 | Documentação reorganizada (REFERENCIA_COMANDOS.md unificado) | ✅ |
 | Back-end considerado **fechado** — próxima fase: Autenticação (JWT) | ✅ |
+
+---
+
+## Sessão 8 — Autenticação JWT e Testes de Auth
+**Data:** 14/07/2026
+**Branch:** feature/frontend (testes de auth commitados aqui antes de partir para o front-end)
+
+---
+
+### 8.1 Problema de sincronização do repositório local
+
+Ao iniciar a sessão, o `main` local estava parado no PR #8 (Sessão 1), enquanto
+o GitHub já estava no PR #15 (Autenticação). O `git pull` dizia "Already up to
+date" porque o `origin/HEAD` remoto apontava para `feature/setup_do_projeto`
+em vez de `main`.
+
+**Causa raiz:** o `HEAD` padrão do repositório no GitHub nunca foi atualizado
+para `main` após as reorganizações de branches anteriores.
+
+**Solução:**
+```bash
+git fetch origin
+git update-ref refs/remotes/origin/main 00a0e16  # commit correto do GitHub
+git merge origin/main
+```
+
+**Limpeza adicional:**
+- `REFERENCIA_COMANDOS.md` duplicado na raiz removido (`git rm`)
+- `assets/` rastreado pelo Git mesmo estando no `.gitignore` — removido com
+  `git rm -r --cached assets/`
+- `origin/HEAD` corrigido nas Settings do GitHub (Default branch → `main`)
+
+**Comandos novos aprendidos neste incidente:**
+
+```bash
+git branch -a                          # lista todas as branches locais e remotas
+git ls-remote origin HEAD              # mostra para onde o HEAD remoto aponta
+git update-ref refs/remotes/origin/main <commit>  # atualiza referência remota localmente
+git ls-files <pasta>                   # verifica se pasta está rastreada pelo Git
+git rm -r --cached <pasta>             # remove pasta do controle de versão sem deletar do disco
+```
+
+---
+
+### 8.2 Testes de autenticação — 15 condições implementadas
+
+Arquivo criado: `tests/test_auth.py`
+Fixtures adicionadas ao `conftest.py`: `usuario_cadastrado`, `token_valido`
+
+**Cadastro (`/auth/cadastro`):**
+
+| # | Condição | Resultado |
+|---|---|---|
+| C1 | Cadastro válido | ✅ 200, retorna `id` e `email` |
+| C2 | Email duplicado | ✅ 400 |
+| C3 | Sem `email` | ✅ 422 |
+| C4 | Sem `senha` | ✅ 422 |
+
+**Login (`/auth/login`):**
+
+| # | Condição | Resultado |
+|---|---|---|
+| L1 | Login válido | ✅ 200, retorna `access_token` e `token_type` |
+| L2 | Email inexistente | ✅ 401 |
+| L3 | Senha incorreta | ✅ 401 |
+| L4 | Sem `username` | ✅ 422 |
+| L5 | Sem `password` | ✅ 422 |
+
+**Proteção das rotas:**
+
+| # | Condição | Resultado |
+|---|---|---|
+| P1 | Sem token | ✅ 401 |
+| P2 | Token válido | ✅ 200 |
+| P3 | Token inválido | ✅ 401 |
+| P4 | Token expirado | ✅ 401 |
+
+**Segurança:**
+
+| # | Condição | Resultado |
+|---|---|---|
+| S1 | `senha_hash` não aparece na resposta | ✅ |
+| S2 | Mensagem de erro genérica no login | ✅ |
+
+**Total: 15 passed** ✅
+
+---
+
+### 8.3 Ajustes técnicos desta sessão
+
+**`criar_token` com `expires_delta` opcional** — necessário para o teste P4
+(token expirado). Permite gerar tokens com expiração customizada:
+
+```python
+def criar_token(dados: dict, expires_delta: timedelta = None) -> str:
+    payload = dados.copy()
+    if expires_delta:
+        expiracao = datetime.now(timezone.utc) + expires_delta
+    else:
+        expiracao = datetime.now(timezone.utc) + timedelta(minutes=EXPIRACAO_MINUTOS)
+    payload.update({"exp": expiracao})
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+```
+
+**`UsuarioResponse` — `class Config` substituído por `model_config`:**
+
+```python
+# ANTES (deprecated no Pydantic v2)
+class Config:
+    from_attributes = True
+
+# DEPOIS
+model_config = {"from_attributes": True}
+```
+
+**Warning registrado (não corrigido intencionalmente):**
+```
+jose\jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated
+```
+Problema **interno da biblioteca** `python-jose`, não do nosso código. Mantido
+visível como lembrete — aguardar atualização da biblioteca.
+
+---
+
+### 8.4 Fixture `token_valido` — formato OAuth2
+
+O login usa `OAuth2PasswordRequestForm`, que exige os dados como **formulário**
+(`data=`), não JSON (`json=`):
+
+```python
+@pytest.fixture
+def token_valido(client, usuario_cadastrado):
+    resposta = client.post("/auth/login", data={
+        "username": "teste@teste.com",
+        "password": "123456"
+    })
+    return resposta.json()["access_token"]
+```
+
+---
+
+### 8.5 Decisão arquitetural — versionamento das rotas de auth
+
+Decidido **não** adicionar `/v1/` às rotas de autenticação (`/auth/cadastro`,
+`/auth/login`), mantendo o padrão de mercado:
+
+| Tipo | Prefixo | Motivo |
+|---|---|---|
+| Recursos (tarefas) | `/v1/tarefas/` | Versionados — podem mudar com a API |
+| Autenticação | `/auth/` | Sem versão — padrão de mercado, raramente muda junto com recursos |
+
+---
+
+### 8.6 Testes de tarefas quebraram com autenticação
+
+Ao rodar `test_tarefas.py` após proteger as rotas, todos retornaram 401 —
+as rotas agora exigem token, mas os testes antigos não passam token.
+
+**Solução planejada (próxima sessão):** criar override da autenticação nos
+testes de tarefas, ou atualizar os testes para fazer login antes de cada
+requisição.
+
+---
+
+### Resumo da Sessão 8
+
+| Atividade | Status |
+|---|---|
+| Sincronização do repositório local corrigida | ✅ |
+| `assets/` removido do controle de versão | ✅ |
+| `REFERENCIA_COMANDOS.md` duplicado removido da raiz | ✅ |
+| `origin/HEAD` corrigido no GitHub | ✅ |
+| 15 testes de autenticação implementados e passando | ✅ |
+| `model_config` substituindo `class Config` (Pydantic v2) | ✅ |
+| `criar_token` com `expires_delta` opcional | ✅ |
+| Decisão arquitetural de versionamento de auth registrada | ✅ |
+| Testes de tarefas quebrados por auth — correção planejada | ⏳ |
+| Front-end iniciado (estrutura de pastas criada) | ✅ |

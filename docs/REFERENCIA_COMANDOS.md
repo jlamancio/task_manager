@@ -134,7 +134,39 @@ git stash drop
 ```
 Remove uma entrada do stash que não é mais necessária.
 
-### 1.6 Resolvendo conflitos de merge
+### 1.6 Diagnóstico avançado de sincronização
+
+```bash
+git branch -a
+```
+Lista **todas** as branches — locais e remotas. Útil para identificar para
+onde o `origin/HEAD` está apontando.
+
+```bash
+git ls-remote origin HEAD
+```
+Mostra para onde o HEAD remoto aponta no GitHub — útil quando o `git pull`
+diz "Already up to date" mas o repositório parece desatualizado.
+
+```bash
+git update-ref refs/remotes/origin/main <commit>
+```
+Atualiza manualmente a referência remota local — usado quando o `origin/main`
+local está "preso" num commit antigo e o `git fetch` não resolve.
+
+```bash
+git ls-files <pasta>
+```
+Verifica se uma pasta ou arquivo está sendo rastreado pelo Git. Se retornar
+algo, o arquivo está no controle de versão mesmo que esteja no `.gitignore`.
+
+```bash
+git rm -r --cached <pasta>
+```
+Remove uma pasta do controle de versão **sem deletar do disco** — usado quando
+um arquivo foi adicionado ao `.gitignore` depois de já ter sido commitado.
+
+### 1.7 Resolvendo conflitos de merge
 
 ```bash
 grep -E "<<<<<<<|=======|>>>>>>>" <arquivo>
