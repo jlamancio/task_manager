@@ -48,3 +48,19 @@ def tarefa_criada(client):
         },
     )
     return resposta.json()
+
+
+@pytest.fixture
+def usuario_cadastrado(client):
+    resposta = client.post(
+        "/auth/cadastro", json={"email": "teste@teste.com", "senha": "123456"}
+    )
+    return resposta.json()
+
+
+@pytest.fixture
+def token_valido(client, usuario_cadastrado):
+    resposta = client.post(
+        "/auth/login", data={"username": "teste@teste.com", "password": "123456"}
+    )
+    return resposta.json()["access_token"]
