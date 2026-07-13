@@ -20,9 +20,12 @@ def verificar_senha(senha: str, senha_hash: str) -> bool:
     return pwd_context.verify(senha, senha_hash)
 
 
-def criar_token(dados: dict) -> str:
+def criar_token(dados: dict, expires_delta: timedelta = None) -> str:
     payload = dados.copy()
-    expiracao = datetime.now(timezone.utc) + timedelta(minutes=EXPIRACAO_MINUTOS)
+    if expires_delta:
+        expiracao = datetime.now(timezone.utc) + expires_delta
+    else:
+        expiracao = datetime.now(timezone.utc) + timedelta(minutes=EXPIRACAO_MINUTOS)
     payload.update({"exp": expiracao})
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -34,7 +37,6 @@ def criar_usuario(email: str, senha: str, db: Session) -> UsuarioDB:
     db.commit()
     db.refresh(usuario)
     return usuario
-
 
 def verificar_token(token: str) -> str:
     try:

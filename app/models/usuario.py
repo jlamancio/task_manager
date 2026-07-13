@@ -5,9 +5,9 @@ class UsuarioCreate(BaseModel):
     senha: str
 
 class UsuarioResponse(BaseModel):
+   
+    model_config = {"from_attributes": True}
     id: int
     email: str
 
-    class Config:
-        from_attributes = True
 
