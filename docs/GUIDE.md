@@ -1214,3 +1214,174 @@ requisição.
 | Decisão arquitetural de versionamento de auth registrada | ✅ |
 | Testes de tarefas quebrados por auth — correção planejada | ⏳ |
 | Front-end iniciado (estrutura de pastas criada) | ✅ |
+
+---
+
+## Sessão 9 — Correção dos testes de tarefas após JWT (13/07/2026)
+**Branch:** feature/frontend
+
+### Resumo
+
+Ao proteger as rotas de `app/routes/tarefas.py` com `Depends(get_current_user)`
+(definido em `app/dependencies.py`), todos os testes de `test_tarefas.py`
+passaram a retornar 401 — eles não enviavam token, como já registrado na
+Sessão 8.6.
+
+**Solução aplicada:** criada uma fixture nova `client_autenticado` em
+`conftest.py`, que depende da fixture `client` e sobrescreve
+`get_current_user` via `app.dependency_overrides`, retornando um e-mail fixo
+(`"teste@teste.com"`).
+
+```python
+@pytest.fixture
+def client_autenticado(client):
+    app.dependency_overrides[get_current_user] = lambda: "teste@teste.com"
+    yield client
+    app.dependency_overrides.pop(get_current_user, None)
+```
+
+**Por que uma fixture separada, e não sobrescrever direto na fixture `client`:**
+`test_auth.py` reutiliza a fixture `client` pura nos testes de segurança
+(`test_acessar_tarefas_sem_token`, `test_acessar_tarefas_com_token_invalido`,
+`test_acessar_tarefa_com_token_expirado`) — se o override fosse global ali,
+esses testes parariam de validar o 401 de verdade. Isolando o override numa
+fixture derivada, cada suíte usa a versão certa.
+
+`tarefa_criada` (fixture que cria uma tarefa via POST) também passou a
+depender de `client_autenticado`, já que o POST é uma rota protegida.
+
+Todas as assinaturas de `test_tarefas.py` foram atualizadas de `client` para
+`client_autenticado`.
+
+### Observações registradas
+
+- `current_user` nas rotas de tarefas hoje só bloqueia acesso anônimo — os
+  services (`tarefa_service.py`) não filtram dados por usuário. Não é
+  esquecimento nos testes; é assim que o service foi desenhado. Fica como
+  possível pendência futura caso o projeto vire multiusuário.
+- `SECRET_KEY` hardcoded em `auth_service.py` — não afeta os testes, mas é
+  nota para revisão antes de qualquer deploy real.
+- Warning `DeprecationWarning: datetime.datetime.utcnow()` (interno do
+  `python-jose`, `jose/jwt.py:311`) reconfirmado como mantido sem correção —
+  decisão consciente, já registrada na Sessão 8.3.
+
+### Resumo da Sessão 9
+
+| Atividade | Status |
+|---|---|
+| Diagnóstico do erro 401 em test_tarefas.py | ✅ |
+| Fixture `client_autenticado` criada em conftest.py | ✅ |
+| `tarefa_criada` atualizada para usar `client_autenticado` | ✅ |
+| test_tarefas.py migrado para `client_autenticado` | ✅ |
+| test_auth.py mantido intocado (testes de segurança preservados) | ✅ |
+| Suíte completa validada: 34 passed, 1 warning (aceito) | ✅ |
+
+---
+
+## Sessão 10 — Correções no api.js do front-end (13/07/2026)
+**Branch:** feature/frontend
+
+### Resumo
+
+Revisão do `api.js` (camada de comunicação com a API via `fetch`). Bugs
+encontrados e corrigidos:
+
+- **`Bearer${getToken()}`** → **`Bearer ${getToken()}`** — faltava espaço
+  depois de "Bearer" em `listarTarefas`, `criarTarefa`, `deletarTarefa` e
+  `atualizartarefa`.
+- **`listarTarefas`**: estava com `method: "POST"` e um `body` inválido
+  (`{email, senha}`, resquício copiado da função de login); corrigido para
+  `GET`, sem body.
+- **`"Content-Type": "application-json"`** → **`"application/json"`** — não
+  é convenção de projeto, é o nome oficial do MIME type (padrão
+  tipo/subtipo); com hífen o FastAPI não reconhece o formato do body.
+  Ocorria em `login`, `cadastrar`, `criarTarefa` e `atualizartarefa`.
+- **`criarTarefa()`** → **`criarTarefa(dados)`** — faltava o parâmetro usado
+  no `body`.
+- **Barra final nas URLs** (`/v1/tarefas/`) em `listarTarefas` e
+  `criarTarefa`, para bater com a rota exata do FastAPI.
+
+**Função `logout` adicionada e corrigida:** a primeira versão tentava fazer
+`fetch` para `/auth/login` com `method: "PUT"` e um header `Authorization`
+solto fora do objeto `headers`. Confirmado no GUIDE que **não existe rota
+`/auth/logout`** no back-end (só `/auth/cadastro` e `/auth/login`) — e como
+o JWT é *stateless*, não há sessão no servidor para encerrar. Logout foi
+reescrito como função client-side simples: remove o token do `localStorage`
+e redireciona para a tela de login, sem chamada à API.
+
+### Pendência identificada
+
+Rotas de tarefas hoje são `GET /`, `POST /`, `PUT /{id}`, `PATCH /{id}`,
+`DELETE /{id}` — **não existe `GET /{tarefa_id}`** (buscar uma tarefa
+específica). Decisão em aberto para a tela de edição: reaproveitar os dados
+já carregados por `listarTarefas()` (filtrando pelo `id` no array), ou criar
+a rota nova no back-end. Depende de como a navegação para a tela de edição
+vai funcionar (a partir da lista vs. URL direta).
+
+### Resumo da Sessão 10
+
+| Atividade | Status |
+|---|---|
+| Bug do espaço em "Bearer" corrigido (4 funções) | ✅ |
+| listarTarefas corrigido (método GET, sem body) | ✅ |
+| Content-Type "application-json" corrigido para "application/json" (4 funções) | ✅ |
+| criarTarefa recebendo parâmetro dados | ✅ |
+| Barra final nas URLs de tarefas | ✅ |
+| Função logout implementada (client-side, sem chamada à API) | ✅ |
+| Rota de busca por tarefa específica (GET /{id}) — decisão pendente | ⏳ |
+
+---
+
+## Sessão 11 — index.html: primeira página do front-end (13/07/2026)
+**Branch:** feature/frontend
+
+### Resumo
+
+Confirmado que, da estrutura de pastas criada anteriormente, apenas
+`frontend/js/api.js` já tinha conteúdo — `index.html`, `frontend/css/style.css`
+e `frontend/js/index.js` estavam vazios (assim como `login.html`,
+`cadastro.html`, `login.js` e `cadastro.js`, que ainda não foram tocados).
+
+**Direção visual adotada:** cada tarefa tratada como um registro de
+livro-razão/console de sistema — número sequencial em fonte monoespaçada
+(`#001`, `#002`...), barra de status colorida na lateral esquerda de cada
+linha (âmbar = pendente, azul = em_andamento, verde = concluída), e uma
+"status-line" no topo com contadores por status. Tipografia: IBM Plex Sans
+(corpo) + IBM Plex Mono (rótulos, datas, números de registro), via Google
+Fonts. Paleta azul-acinzentada sóbria, atendendo à pendência já registrada.
+
+**`index.js`** implementado como funcional, não só estático:
+- Guarda de sessão: sem token no `localStorage` → redireciona para
+  `login.html`.
+- `carregarTarefas()` consome `listarTarefas()`; qualquer resposta 401 (token
+  ausente/expirado) redireciona para o login.
+- Formulário único serve para criar e editar (usa `criarTarefa` ou
+  `atualizartarefa` dependendo se há um `id` preenchido).
+- Exclusão via `deletarTarefa`, com confirmação (`window.confirm`).
+- Botão "sair" chama `logout()`.
+- E-mail do usuário exibido no topo via decodificação client-side do payload
+  do JWT (`payload.sub`) — sem validar assinatura, só leitura; a validação
+  real continua sendo feita pelo back-end.
+
+### Pendências para a próxima sessão
+
+- Construir `login.html` + `login.js` (necessário para testar o fluxo
+  completo — `index.html` depende de um token válido salvo).
+- Construir `cadastro.html` + `cadastro.js`.
+- Confirmar no `app/models/tarefa.py` se os valores de Enum usados no
+  formulário (`pendente`/`em_andamento`/`concluida`,
+  `baixa`/`media`/`alta`) batem exatamente com o back-end.
+- Decisão ainda em aberto: rota `GET /{tarefa_id}` (hoje contornada
+  reaproveitando os dados já carregados pela listagem).
+
+### Resumo da Sessão 11
+
+| Atividade | Status |
+|---|---|
+| index.html construído | ✅ |
+| css/style.css construído (paleta azul-acinzentada) | ✅ |
+| js/index.js construído e funcional | ✅ |
+| Suíte de back-end revalidada: 34 passed | ✅ |
+| login.html / login.js | ⏳ |
+| cadastro.html / cadastro.js | ⏳ |
+| Confirmação dos valores de Enum contra tarefa.py | ⏳ |
