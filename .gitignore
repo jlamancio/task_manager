@@ -3,5 +3,5 @@ __pycache__/
 *.pyc
 .env
 start.sh
-report.html
+./report.html
 assets/

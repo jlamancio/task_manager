@@ -6,6 +6,7 @@ from database.db import Base
 from app.models.tarefa_db import TarefaDB
 from fastapi.testclient import TestClient
 from database.db import get_db
+from app.dependencies import get_current_user
 from main import app
 
 
@@ -36,8 +37,15 @@ def client(db_session):
 
 
 @pytest.fixture
-def tarefa_criada(client):
-    resposta = client.post(
+def client_autenticado(client):
+    app.dependency_overrides[get_current_user] = lambda: "teste@teste.com"
+    yield client
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def tarefa_criada(client_autenticado):
+    resposta = client_autenticado.post(
         "/v1/tarefas/",
         json={
             "titulo": "Criacao de registro para teste",

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Manager — Registro de tarefas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar__brand">task_manager<span class="topbar__slash">//</span>index</div>
+    <div class="topbar__user">
+        <span id="usuario-email" class="topbar__email"></span>
+        <button id="btn-logout" class="btn btn--ghost" type="button">sair</button>
+    </div>
+</header>
+
+<main class="container">
+
+    <section class="statusline" aria-label="Resumo de tarefas por status">
+        <div class="statusline__item statusline__item--pendente">
+            <span class="statusline__count" id="count-pendente">00</span>
+            <span class="statusline__label">pendente</span>
+        </div>
+        <div class="statusline__item statusline__item--andamento">
+            <span class="statusline__count" id="count-andamento">00</span>
+            <span class="statusline__label">em_andamento</span>
+        </div>
+        <div class="statusline__item statusline__item--concluida">
+            <span class="statusline__count" id="count-concluida">00</span>
+            <span class="statusline__label">concluída</span>
+        </div>
+    </section>
+
+    <section class="painel-nova">
+        <button id="btn-nova-tarefa" class="btn btn--primary" type="button">+ nova tarefa</button>
+
+        <form id="form-tarefa" class="form-tarefa" hidden novalidate>
+            <input type="hidden" id="tarefa-id">
+
+            <div class="form-tarefa__row">
+                <label for="titulo">título</label>
+                <input type="text" id="titulo" name="titulo" required maxlength="120">
+            </div>
+
+            <div class="form-tarefa__row">
+                <label for="descricao">descrição</label>
+                <textarea id="descricao" name="descricao" rows="2"></textarea>
+            </div>
+
+            <div class="form-tarefa__grid">
+                <div class="form-tarefa__row">
+                    <label for="status">status</label>
+                    <select id="status" name="status">
+                        <option value="pendente">pendente</option>
+                        <option value="em_andamento">em_andamento</option>
+                        <option value="concluida">concluída</option>
+                    </select>
+                </div>
+                <div class="form-tarefa__row">
+                    <label for="prioridade">prioridade</label>
+                    <select id="prioridade" name="prioridade">
+                        <option value="baixa">baixa</option>
+                        <option value="media" selected>média</option>
+                        <option value="alta">alta</option>
+                    </select>
+                </div>
+                <div class="form-tarefa__row">
+                    <label for="data_vencimento">vencimento</label>
+                    <input type="date" id="data_vencimento" name="data_vencimento" required>
+                </div>
+            </div>
+
+            <div class="form-tarefa__actions">
+                <button type="submit" class="btn btn--primary" id="btn-salvar">salvar</button>
+                <button type="button" class="btn btn--ghost" id="btn-cancelar">cancelar</button>
+            </div>
+
+            <p class="form-tarefa__erro" id="form-erro" role="alert" hidden></p>
+        </form>
+    </section>
+
+    <section aria-label="Lista de tarefas">
+        <p id="estado-carregando" class="estado-carregando">carregando registros...</p>
+        <p id="estado-vazio" class="estado-vazio" hidden>nenhuma tarefa registrada. adicione a primeira acima.</p>
+        <ul id="lista-tarefas" class="lista-tarefas"></ul>
+    </section>
+
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/index.js"></script>
+</body>
+</html>
