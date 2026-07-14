@@ -13,11 +13,18 @@ function removeToken() {
 }
 
 async function login(email, senha) {
+    // CORREÇÃO: /auth/login usa OAuth2PasswordRequestForm no back-end, que exige
+    // form-urlencoded com os campos "username"/"password" — não JSON com email/senha
+    // (confirmado em test_auth.py: client.post("/auth/login", data={"username":..., "password":...}))
+    const corpoForm = new URLSearchParams();
+    corpoForm.append("username", email);
+    corpoForm.append("password", senha);
+
     const resposta = await fetch(`${API_URL}/auth/login`,
         {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, senha })
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: corpoForm
         });
     return resposta;
 }
@@ -73,14 +80,7 @@ async function atualizartarefa(id, dados) {
     return resposta;
 }
 
-async function logout() {
+function logout() {
     removeToken();
     window.location.href = "login.html";
 }
-
-
-
-
-
-
-
