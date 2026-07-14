@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Manager — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="pagina-auth">
+
+<main class="auth-container">
+    <div class="auth-card">
+        <div class="auth-card__brand">task_manager<span class="topbar__slash">//</span>login</div>
+
+        <form id="form-login" class="auth-form" novalidate>
+            <div class="form-tarefa__row">
+                <label for="email">e-mail</label>
+                <input type="email" id="email" name="email" required autocomplete="username">
+            </div>
+
+            <div class="form-tarefa__row">
+                <label for="senha">senha</label>
+                <input type="password" id="senha" name="senha" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn btn--primary auth-form__submit" id="btn-entrar">entrar</button>
+
+            <p class="form-tarefa__erro" id="form-erro" role="alert" hidden></p>
+        </form>
+
+        <p class="auth-card__rodape">
+            ainda não tem conta? <a href="cadastro.html">cadastre-se</a>
+        </p>
+    </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/login.js"></script>
+</body>
+</html>
