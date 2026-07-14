@@ -1385,3 +1385,77 @@ Fonts. Paleta azul-acinzentada sóbria, atendendo à pendência já registrada.
 | login.html / login.js | ⏳ |
 | cadastro.html / cadastro.js | ⏳ |
 | Confirmação dos valores de Enum contra tarefa.py | ⏳ |
+
+---
+
+## Sessão 12 — Instalação do Cypress + Cucumber (14/07/2026)
+**Branch:** feature/frontend
+
+### Resumo
+
+Front-end (index.html, login.html, cadastro.html) validado de ponta a ponta
+no navegador. Corrigido bug real na função `login()` do `api.js`: mandava
+JSON `{email, senha}`, mas `/auth/login` usa `OAuth2PasswordRequestForm`
+(exige form-urlencoded com `username`/`password`). Também foi necessário
+configurar `CORSMiddleware` no `main.py`, por causa do preflight `OPTIONS`
+entre o Live Server (porta 5500) e a API (porta 8000).
+
+Instalado Cypress + `@badeball/cypress-cucumber-preprocessor` +
+`@bahmutov/cypress-esbuild-preprocessor` + `esbuild`. Node confirmado em
+v22.22.3 (LTS), evitando repetir a incompatibilidade já registrada em
+sessão anterior (Node 25 + esbuild 0.28.0).
+
+`npm audit` acusou 3 vulnerabilidades (jsdiff, serialize-javascript) — todas
+internas ao `mocha`, dependência transitiva do próprio Cypress, não algo
+instalado diretamente. Decisão registrada: manter sem correção via
+`--force` (risco de quebrar Cypress/Node maior que o benefício; é
+devDependency local, não vai para produção).
+
+Corrigido `.gitignore`: `start.sh` estava sendo ignorado sem necessidade
+(não tem segredo nem caminho absoluto) — removido da lista, para ser
+versionado normalmente.
+
+Também foi gerada uma tabela de decisão de cobertura para os testes E2E
+(Login, Cadastro, Guarda de sessão, CRUD de tarefas, Logout — 28 cenários),
+e um cronograma estimado em sessões de trabalho (7–11 sessões até o
+Cypress completo).
+
+### Pendências para a próxima sessão
+
+- **Cypress:** o `cypress.config.js` atual é uma versão "manual" (dada
+  pronta, sem passar pelo assistente do Cypress). Rodar `npx cypress open`
+  pela primeira vez, deixar o Cypress gerar a estrutura padrão
+  (`cypress/fixtures`, `cypress/support`), e então mesclar a configuração
+  do Cucumber (`setupNodeEvents`, `specPattern`) dentro do arquivo gerado.
+- Criar a estrutura de pastas combinada: `cypress/e2e/{login,cadastro,tarefas}/`
+  com `.feature` + `step_definitions/` em cada uma.
+- Escrever os `.feature` (Gherkin) a partir da tabela de decisão da Sessão 12.
+- Implementar os `step_definitions` (começando por Login + Cadastro).
+- Confirmar no `app/models/tarefa.py` se os valores de Enum usados no
+  front-end (`pendente`/`em_andamento`/`concluida`, `baixa`/`media`/`alta`)
+  batem exatamente com o back-end.
+- Decisão em aberto: rota `GET /{tarefa_id}` (hoje contornada no front-end).
+- Decisão em aberto: manter uma única branch `feature/frontend` de vida
+  longa (com PRs de revisão), ou mergear para `main` a cada sessão fechada.
+- Confirmar se `git push origin feature/frontend` (com a correção do
+  `.gitignore`) e o fechamento do PR desta sessão já foram concluídos.
+
+### Resumo da Sessão 12
+
+| Atividade | Status |
+|---|---|
+| Bug do formato de login (form-urlencoded) corrigido | ✅ |
+| CORSMiddleware configurado no back-end | ✅ |
+| Front-end validado de ponta a ponta no navegador | ✅ |
+| Cypress + Cucumber instalados (Node 22 LTS confirmado) | ✅ |
+| npm audit revisado e decisão registrada (vulnerabilidades no mocha) | ✅ |
+| .gitignore corrigido (start.sh volta a ser versionado) | ✅ |
+| Tabela de decisão de cobertura E2E gerada | ✅ |
+| Cronograma estimado (7–11 sessões) | ✅ |
+| cypress.config.js oficial (via npx cypress open + merge do Cucumber) | ⏳ |
+| Estrutura de pastas cypress/e2e/ criada | ⏳ |
+| .feature files escritos | ⏳ |
+| step_definitions implementados | ⏳ |
+| Confirmação dos Enum contra tarefa.py | ⏳ |
+| Decisão sobre GET /{tarefa_id} | ⏳ |
+| Decisão sobre fluxo de branch/PR (mergear por sessão vs. branch longa) | ⏳ |
