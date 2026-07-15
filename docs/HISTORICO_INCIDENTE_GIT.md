@@ -168,3 +168,128 @@ deletados de verdade.
 5. **Conflitos de merge em `requirements.txt` são normais e de baixo risco
    de resolver** — geralmente basta entender quais linhas pertencem a cada
    lado e manter as duas, sem perder dependências reais.
+
+---
+
+# Incidente 2 — Banco de dados local apagado durante operações de Git
+
+**Data:** 14/07/2026
+**Contexto:** Sessão de configuração do Cypress + Cucumber, logo após
+corrigir o rastreamento do `database/task_manager.db` no `.gitignore`.
+
+## 1. O sintoma
+
+Ao rodar `find` na raiz do projeto, `database/task_manager.db` não aparecia
+mais na listagem — só o `database/task_manager.sqbpro` (arquivo de
+configuração do DB Browser). O arquivo do banco em si tinha sumido do
+disco.
+
+Apesar disso, a aplicação (`index.html`, com o servidor `uvicorn` já em
+execução) continuava mostrando as tarefas normalmente, inclusive após um
+`Ctrl+F5` (recarregamento forçado, sem cache).
+
+## 2. Diagnóstico em andamento — a conexão "fantasma"
+
+A explicação mais provável nesse ponto: o processo do `uvicorn`, já em
+execução havia algum tempo, mantinha uma conexão aberta com o arquivo
+antigo. Em sistemas do tipo Unix, um processo consegue continuar lendo um
+arquivo já removido do sistema de arquivos até fechar a conexão — o que
+explicaria os dados ainda aparecerem no navegador mesmo com o arquivo já
+ausente no disco. (Esse comportamento é menos comum no Windows puro, mas o
+ambiente aqui é Git Bash/MINGW64, que se aproxima mais da semântica Unix
+nesse ponto — daí a suspeita, sem confirmação absoluta do mecanismo.)
+
+## 3. Causa raiz — não totalmente confirmada
+
+A sequência de comandos executada imediatamente antes do sintoma aparecer
+foi:
+```bash
+git add docs/GUIDE.md
+git commit -m "docs: atualiza GUIDE.md com Sessão 12"
+echo "database/*.db" >> .gitignore
+git rm --cached database/task_manager.db
+git add .gitignore
+git commit -m "chore: remove task_manager.db do controle de versão"
+git checkout main
+git pull origin main
+git checkout feature/frontend
+git merge main
+```
+
+A suspeita principal: no momento do `git checkout main`, o arquivo ainda
+estava referenciado de alguma forma na árvore de `main` (que não tinha
+recebido a remoção do rastreamento feita em `feature/frontend`) — o log do
+merge seguinte mostrou explicitamente `database/task_manager.db | Bin
+24576 -> 24576 bytes`, confirmando que o Git tocou no conteúdo do arquivo
+durante essa troca de branch. O que exatamente levou da sobrescrita para o
+desaparecimento total não foi isolado com certeza — diferente do Incidente
+1, aqui a causa raiz **não foi 100% confirmada**, só a sequência de eventos
+que precedeu o sintoma.
+
+## 4. A perda de dados
+
+Diferente do Incidente 1, aqui houve **perda de dados real**: antes de um
+backup poder ser extraído (via `fetch()` direto no console do navegador,
+enquanto a conexão fantasma ainda respondia), o servidor foi reiniciado
+duas vezes para corrigir um erro de digitação no comando (`main:api` em vez
+de `main:app`). Isso encerrou a conexão que ainda enxergava os dados
+antigos. O próximo request contra o arquivo `.db` recriado do zero pelo
+SQLite falhou com `sqlite3.OperationalError: no such table: usuarios` — o
+arquivo novo não tinha nenhuma tabela, porque a criação de tabelas nunca
+foi automática no `main.py`, só um comando manual rodado uma vez na
+Sessão 3.5.
+
+**Resultado:** usuário de teste e tarefas cadastradas foram perdidos (dados
+de desenvolvimento, sem impacto real — recriados manualmente em seguida).
+
+## 5. A recuperação
+
+```bash
+python -c "from database.db import Base, engine; from app.models.tarefa_db import TarefaDB; from app.models.usuario_db import UsuarioDB; Base.metadata.create_all(bind=engine); print('Tabelas recriadas com sucesso')"
+```
+(Primeira tentativa falhou com `bash: !': event not found` — o `!` dentro
+de aspas duplas aciona expansão de histórico do Bash; aspas simples
+protegeriam, mas o mais simples foi remover o `!` da mensagem.)
+
+Tabelas recriadas, usuário e tarefas recadastrados manualmente pela
+interface.
+
+## 6. Correção estrutural — tornando o banco autossuficiente
+
+Para que a ausência do arquivo `.db` deixe de ser um incidente e passe a
+ser autocorrigível, `Base.metadata.create_all(bind=engine)` foi movido para
+o carregamento do `main.py`, rodando toda vez que o servidor sobe:
+
+```python
+from database.db import Base, engine
+from app.models import tarefa_db, usuario_db
+
+Base.metadata.create_all(bind=engine)
+```
+
+Essa chamada é **idempotente** — se as tabelas já existem, não faz nada; só
+cria as que faltarem. Isso significa que, se o arquivo `.db` desaparecer de
+novo por qualquer motivo, o próximo `uvicorn --reload` recria a estrutura
+sozinho, sem exigir o comando manual que atrasou a recuperação desta vez.
+
+## 7. Lições registradas
+
+1. **Um arquivo de banco de dados local não deveria ser tocado por
+   operações de Git em andamento** — mesmo removido do rastreamento
+   (`.gitignore` + `git rm --cached`), ele ainda pode ser afetado por
+   `checkout`/`merge` se a remoção não estiver presente em todas as
+   branches envolvidas na operação.
+2. **Aplicações com servidor em hot-reload escondem problemas de arquivo
+   temporariamente** — uma conexão já aberta pode continuar respondendo
+   normalmente mesmo com o arquivo já ausente do disco, atrasando a
+   percepção do problema até o próximo restart.
+3. **Extrair um backup rápido (`fetch()` no console do navegador) é uma
+   opção legítima quando se suspeita que um arquivo de dados sumiu, mas o
+   processo que ainda o "enxerga" continua rodando** — mas essa janela
+   fecha assim que o servidor reinicia, então não deve ser adiada.
+4. **Erros de digitação em comandos de restart (`main:api` vs `main:app`)
+   podem ter consequência maior que o esperado**, se coincidirem com uma
+   janela de recuperação de dados em andamento.
+5. **Tornar a criação de schema idempotente e automática no startup** é
+   uma rede de segurança de baixo custo — transforma um incidente
+   manual-dependente em algo autocorrigível.
