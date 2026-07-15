@@ -1,0 +1,33 @@
+{
+  "name": "task_manager",
+  "version": "1.0.0",
+  "description": "Sistema de gerenciamento de tarefas com API back-end e front-end, com cobertura de testes em ambas as camadas.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jlamancio/task_manager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jlamancio/task_manager/issues"
+  },
+  "homepage": "https://github.com/jlamancio/task_manager#readme",
+  "cypress-cucumber-preprocessor": {
+    "stepDefinitions": "cypress/e2e/[filepath]/step_definitions/*.js"
+  },
+  "devDependencies": {
+    "@badeball/cypress-cucumber-preprocessor": "^26.0.0",
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",
+    "cypress": "^15.18.1",
+    "esbuild": "^0.28.1"
+  }
+}

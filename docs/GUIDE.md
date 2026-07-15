@@ -1459,3 +1459,77 @@ Cypress completo).
 | Confirmação dos Enum contra tarefa.py | ⏳ |
 | Decisão sobre GET /{tarefa_id} | ⏳ |
 | Decisão sobre fluxo de branch/PR (mergear por sessão vs. branch longa) | ⏳ |
+
+---
+
+## Sessão 13 — Cypress: primeiro feature file + incidente do banco (14/07/2026)
+**Branch:** feature/frontend
+
+### Resumo
+
+Merge do PR da sessão anterior confirmado no `main` (15 arquivos: front-end
+completo, `GUIDE.md`, correções de teste, `.gitignore`).
+
+**Organização de repositório:** removidos do controle de versão dois
+arquivos que mudam a cada execução local e não deveriam ser versionados —
+`database/task_manager.db` (banco SQLite) e `report.html` (saída do
+`pytest-html`). `start.sh` voltou a ser versionado (não tinha segredo nem
+caminho absoluto, fazia sentido estar no repositório para reprodutibilidade).
+
+**Decisão de workflow confirmada:** fechar/mergear o PR ao final de cada
+sessão neste projeto, em vez de deixar acumulando commits de sessões
+diferentes.
+
+**Cypress + Cucumber:** confirmado que `npx cypress open` não sobrescreveu
+o `cypress.config.js` já existente — só gerou as pastas padrão que
+faltavam (`cypress/fixtures/`, `cypress/support/`). Criado o primeiro
+conjunto de teste E2E: `cypress/e2e/login/login.feature` (5 cenários, em
+Gherkin/português, a partir da tabela de decisão da Sessão 12) e seu
+`step_definitions/login.steps.js`. Ainda não validado rodando.
+
+**Incidente 2 registrado em `docs/HISTORICO_INCIDENTE_GIT.md`:**
+`database/task_manager.db` foi apagado do disco durante a sequência de
+`git checkout main` → `pull` → `checkout feature/frontend` → `merge main`,
+logo após o `git rm --cached` do mesmo arquivo. Causa raiz não confirmada
+100% (suspeita: conexão do `uvicorn` já aberta manteve os dados visíveis
+temporariamente — "conexão fantasma" — até dois restarts consecutivos
+encerrarem essa conexão antes de um backup poder ser extraído). Resultado:
+perda de dados de teste (usuário e tarefas), sem impacto real. Tabelas
+recriadas manualmente via `Base.metadata.create_all()`.
+
+**Correção estrutural aplicada no `main.py`:** `Base.metadata.create_all()`
+movido para o carregamento do módulo, rodando a cada subida do servidor.
+É idempotente — não apaga nem recria tabelas existentes, só cria as que
+faltarem — tornando o banco autossuficiente contra esse tipo de incidente
+no futuro.
+
+### Pendências para a próxima sessão
+
+- Rodar `login.feature` no Cypress e validar os 5 cenários.
+- Escrever `cadastro.feature` + `step_definitions` (mesmo padrão do login).
+- Escrever `tarefas.feature` (CRUD completo) + `step_definitions` — maior
+  risco de estourar o cronograma, conforme já estimado na Sessão 12.
+- Confirmar no `app/models/tarefa.py` se os valores de Enum usados no
+  front-end batem exatamente com o back-end (pendência antiga, ainda
+  não verificada).
+- Decisão em aberto: rota `GET /{tarefa_id}`.
+- Salvar e testar `main.py` e `HISTORICO_INCIDENTE_GIT.md` localmente,
+  recadastrar usuário/tarefas de teste, commit e fechamento do PR de hoje.
+
+### Resumo da Sessão 13
+
+| Atividade | Status |
+|---|---|
+| PR da sessão anterior confirmado mergeado no main | ✅ |
+| database/task_manager.db e report.html removidos do versionamento | ✅ |
+| start.sh de volta ao versionamento | ✅ |
+| Decisão de fechar PR a cada sessão confirmada | ✅ |
+| cypress/e2e/login/ criado (feature + step_definitions) | ✅ |
+| Incidente 2 (banco apagado) diagnosticado e documentado | ✅ |
+| Tabelas recriadas, dados de teste perdidos recadastrados | ✅ |
+| main.py corrigido (create_all automático no startup) | ✅ |
+| login.feature validado rodando no Cypress | ⏳ |
+| cadastro.feature / tarefas.feature | ⏳ |
+| Confirmação dos Enum contra tarefa.py | ⏳ |
+| Decisão sobre GET /{tarefa_id} | ⏳ |
+| Commit e fechamento do PR de hoje | ⏳ |
