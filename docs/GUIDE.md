@@ -1533,3 +1533,90 @@ no futuro.
 | Confirmação dos Enum contra tarefa.py | ⏳ |
 | Decisão sobre GET /{tarefa_id} | ⏳ |
 | Commit e fechamento do PR de hoje | ⏳ |
+
+---
+
+## Sessão 14 — Cobertura Cypress completa + fechamento do projeto (15/07/2026)
+**Branch:** feature/frontend
+
+### Resumo
+
+**Cypress + Cucumber: cobertura completa e validada.** Os 3 `.feature`
+planejados na Sessão 12 (login, cadastro, tarefas) foram escritos,
+depurados e validados rodando juntos: **16/16 cenários passando**
+(5 login + 5 cadastro + 6 tarefas), sem interferência entre specs.
+
+**Bug real encontrado pelo teste automatizado:** o cenário "Tentativa de
+criar tarefa sem título" revelou que o `required` do HTML não bloqueava o
+envio de forma confiável — uma requisição `POST` com `titulo: ""` chegava
+a ser disparada de verdade (confirmado via `cy.intercept`). Corrigido em
+duas camadas:
+- **Front-end** (`index.js`): validação explícita em JS antes de chamar a
+  API, não dependendo só do `required` do HTML.
+- **Back-end** (`app/models/tarefa.py`): `Field(min_length=1)` adicionado
+  ao campo `titulo` em `Tarefa` e `TarefaPatch`. Dois testes novos no
+  Pytest (`test_adicionar_tarefa_titulo_vazio` e
+  `test_atualizar_tarefa_existente_parcialmente_titulo_vazio`) — suíte
+  Python subiu de 34 para **36 testes, todos passando**.
+
+**Estrutura de pastas do Cypress corrigida:** `.feature` files vivem
+direto em `cypress/e2e/` (não mais dentro de uma subpasta com o mesmo
+nome) — o `[filepath]` do `@badeball/cypress-cucumber-preprocessor`
+duplicava o nome da pasta no Windows quando `.feature` e pasta tinham o
+mesmo nome. `step_definitions/` continua dentro da subpasta.
+
+**Flakiness do Electron headless tratada, não escondida:** o erro
+`Keyboard.fireSimulatedEvent`/`KeyboardEvent` undefined apareceu de forma
+intermitente em `login.feature` e depois em `cadastro.feature`, sempre em
+cenários logo após um redirect de página. Configurado
+`retries: { runMode: 2, openMode: 0 }` no `cypress.config.js` — retry só
+no modo headless (CI/execução automatizada), nunca no modo aberto (onde
+uma falha real não deve ser mascarada). Confirmado como flakiness de
+infraestrutura, não bug de aplicação.
+
+**Confirmação de valores de Enum:** `app/models/tarefa.py` confirmou que
+os valores usados no front-end desde a Sessão 11
+(`pendente`/`em_andamento`/`concluida`, `baixa`/`media`/`alta`) estavam
+corretos — pendência antiga fechada sem necessidade de alteração.
+
+### Fechamento do projeto — decisões conscientes sobre pendências restantes
+
+Projeto encerrado como está, para fins de portfólio. As pendências
+remanescentes foram avaliadas e mantidas conscientemente, não são bugs
+esquecidos:
+
+- **Rota `GET /{tarefa_id}`**: não criada. O front-end contorna
+  reaproveitando os dados já carregados pela listagem — funcional, sem
+  necessidade real da rota adicional para o escopo atual.
+- **Refatoração de `HTTPException` nos services**: não realizada. Estava
+  registrada como pendência "antes do Cypress", mas o Cypress foi
+  concluído sem bloqueio real disso — decisão de não fazer.
+- **Avaliação independente de versões de bibliotecas**: não realizada,
+  fora de escopo para o fechamento.
+- **`SECRET_KEY` hardcoded em `auth_service.py`**: mantida como está,
+  documentada como limitação conhecida e aceitável para projeto de
+  portfólio/ambiente local (não é código destinado a produção real).
+- **3 vulnerabilidades do `npm audit`** (internas ao `mocha`, dependência
+  do Cypress): mantidas sem correção via `--force`, decisão já registrada
+  na Sessão 12.
+
+**Novo documento criado:** `docs/LICOES_APRENDIDAS.md` — checklist de
+pontos de atenção a aplicar desde o início do próximo projeto de
+portfólio (segurança/variáveis de ambiente, uso de Faker para massa de
+dados, lições de Git/versionamento, testes E2E, integração
+front-end/back-end).
+
+### Resumo da Sessão 14
+
+| Atividade | Status |
+|---|---|
+| login.feature, cadastro.feature, tarefas.feature — 16/16 passando juntos | ✅ |
+| Bug do título vazio corrigido (front-end + back-end) e coberto por testes | ✅ |
+| Suíte Pytest: 36 testes passando | ✅ |
+| Estrutura de pastas do Cypress corrigida (duplicação de path no Windows) | ✅ |
+| Flakiness do Electron mitigada via retries (runMode apenas) | ✅ |
+| Valores de Enum confirmados contra app/models/tarefa.py | ✅ |
+| docs/LICOES_APRENDIDAS.md criado | ✅ |
+| Pendências remanescentes avaliadas e aceitas conscientemente | ✅ |
+| README.md atualizado para refletir o estado final do projeto | ✅ |
+| **Projeto encerrado** | ✅ |

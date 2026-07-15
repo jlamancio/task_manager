@@ -68,6 +68,15 @@
             data_vencimento: document.getElementById("data_vencimento").value
         };
 
+        // ADICIONADO: validação explícita em JS — não confiar só no "required" do
+        // HTML, que se mostrou pouco confiável em teste automatizado (Cypress
+        // conseguiu disparar o envio mesmo com o campo vazio)
+        if (!dados.titulo.trim()) {
+            erroEl.textContent = "o título é obrigatório.";
+            erroEl.hidden = false;
+            return;
+        }
+
         const resposta = id
             ? await atualizartarefa(id, dados)
             : await criarTarefa(dados);
