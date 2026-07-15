@@ -36,6 +36,27 @@ def test_adicionar_tarefa_sem_titulo(client_autenticado):
     assert resposta.json()
 
 
+def test_adicionar_tarefa_titulo_vazio(client_autenticado):
+    # Diferente do teste acima: aqui o campo "titulo" é enviado, mas como
+    # string vazia — sem o Field(min_length=1), o Pydantic aceitava isso
+    # normalmente (str vazio ainda é um str válido). Descoberto via Cypress:
+    # o required do HTML no front-end não bloqueava esse caso de forma
+    # confiável, então essa validação precisa existir também no back-end.
+    resposta = client_autenticado.post(
+        "/v1/tarefas/",
+        json={
+            "titulo": "",
+            "status": "pendente",
+            "prioridade": "alta",
+            "descricao": "Teste de inclusão de tarefa via método POST",
+            "data_vencimento": "2026-12-31",
+        },
+    )
+
+    assert resposta.status_code == 422
+    assert resposta.json()
+
+
 def test_adicionar_tarefa_sem_data_vencimento(client_autenticado):
     resposta = client_autenticado.post(
         "/v1/tarefas/",
@@ -205,6 +226,20 @@ def test_atualizar_tarefa_existente_parcialmente_Enum_invalido(client_autenticad
     resposta = client_autenticado.patch(
         f"/v1/tarefas/{tarefa_id}",
         json={"status": "status_invalido"},
+    )
+    assert resposta.status_code == 422
+    assert resposta.json()
+
+
+def test_atualizar_tarefa_existente_parcialmente_titulo_vazio(client_autenticado, tarefa_criada):
+    # Mesma correção do POST (test_adicionar_tarefa_titulo_vazio), aplicada
+    # ao TarefaPatch — titulo="" também precisa ser rejeitado numa edição
+    # parcial, não só na criação
+    tarefa_id = tarefa_criada["id"]
+
+    resposta = client_autenticado.patch(
+        f"/v1/tarefas/{tarefa_id}",
+        json={"titulo": ""},
     )
     assert resposta.status_code == 422
     assert resposta.json()

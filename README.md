@@ -14,7 +14,7 @@ GitHub: https://github.com/jlamancio/task_manager
 | Banco de dados | SQLite + SQLAlchemy | SQLAlchemy 2.0.36 |
 | Front-end | HTML + CSS + JavaScript puro | - |
 | Testes back-end | Pytest + httpx (TestClient) | Pytest 8.3.5 / httpx 0.27.0 |
-| Testes front-end | Cypress | A definir no setup front-end |
+| Testes front-end | Cypress + Cucumber (Gherkin) | Cypress 15.18.1 / @badeball/cypress-cucumber-preprocessor ^26.0.0 |
 | Servidor | Uvicorn | 0.34.3 |
 | Ambiente | Node.js + npm | Node 22.22.3 / npm 10.9.8 |
 | Clientes de API | Postman / Insomnia | - |
@@ -100,7 +100,22 @@ Depois de subir, acesse:
 
 ---
 
+## Subindo o front-end
+
+O front-end (`frontend/`) é HTML/CSS/JS puro — não tem build nem
+dependência própria. Basta servir a pasta com um servidor estático
+enquanto a API estiver rodando (ex: extensão Live Server do VS Code,
+clicando com o botão direito em `frontend/login.html` → "Open with Live
+Server").
+
+Fluxo: `cadastro.html` (criar conta) → `login.html` (autenticar) →
+`index.html` (CRUD de tarefas).
+
+---
+
 ## Rodando os testes
+
+### Back-end (Pytest)
 
 Os testes usam um banco SQLite em memória, isolado do banco real
 (`task_manager.db`) — não é necessário a API estar rodando.
@@ -109,8 +124,21 @@ Os testes usam um banco SQLite em memória, isolado do banco real
 python -m pytest -v
 ```
 
-Ver `PLANO_DE_TESTES.md` para a matriz completa de condições de teste
-planejadas, e `GUIDE.md` (Sessão 6) para detalhes de configuração.
+36 testes no total (auth + CRUD de tarefas). Ver `PLANO_DE_TESTES.md` e
+`PLANO_DE_TESTES_AUTH.md` para a matriz completa de condições planejadas.
+
+### End-to-end (Cypress + Cucumber)
+
+Requer a API **e** o front-end rodando (ver seções acima).
+
+```bash
+npx cypress open      # interface gráfica, um spec por vez
+npx cypress run       # modo headless, todos os specs
+```
+
+16 cenários no total, em Gherkin/português, cobrindo login, cadastro e
+CRUD de tarefas. Ver `GUIDE.md` (Sessões 12–14) para a tabela de decisão
+de cobertura e o processo de construção dos testes.
 
 ---
 
@@ -120,24 +148,45 @@ planejadas, e `GUIDE.md` (Sessão 6) para detalhes de configuração.
 task_manager/
 ├── app/
 │   ├── __init__.py
+│   ├── dependencies.py         → get_current_user (dependência de autenticação JWT)
 │   ├── routes/
-│   │   └── tarefas.py          → rotas (GET, POST, PUT, PATCH, DELETE) — só orquestra
+│   │   ├── tarefas.py          → rotas (GET, POST, PUT, PATCH, DELETE) — só orquestra
+│   │   └── auth.py             → rotas de cadastro e login
 │   ├── services/
-│   │   └── tarefa_service.py   → regras de negócio: busca, criação, atualização, remoção
+│   │   ├── tarefa_service.py   → regras de negócio: busca, criação, atualização, remoção
+│   │   └── auth_service.py     → hash de senha, criação/validação de token JWT
 │   └── models/
 │       ├── tarefa.py           → Schema Pydantic (contrato da API) + TarefaPatch
-│       └── tarefa_db.py        → Modelo ORM SQLAlchemy (tabela real)
+│       ├── tarefa_db.py        → Modelo ORM SQLAlchemy (tabela real)
+│       ├── usuario.py          → Schema Pydantic de usuário
+│       └── usuario_db.py       → Modelo ORM SQLAlchemy de usuário
 ├── database/
 │   ├── db.py                   → Engine, Session, Base e get_db() (Dependency Injection)
-│   └── task_manager.db         → arquivo do banco SQLite
+│   └── task_manager.db         → arquivo do banco SQLite (não versionado)
+├── frontend/
+│   ├── index.html              → lista/CRUD de tarefas (tela principal)
+│   ├── login.html
+│   ├── cadastro.html
+│   ├── css/style.css
+│   └── js/
+│       ├── api.js              → camada de integração com a API
+│       ├── index.js / login.js / cadastro.js  → lógica de cada página
 ├── tests/                       → testes automatizados com Pytest
+├── cypress/
+│   └── e2e/                    → testes E2E: *.feature (Gherkin) + step_definitions/
+├── docs/
+│   ├── GUIDE.md                 → diário técnico do projeto, sessão a sessão
+│   ├── HISTORICO_INCIDENTE_GIT.md → incidentes reais de Git, documentados em detalhe
+│   ├── LICOES_APRENDIDAS.md    → checklist de atenção para o próximo projeto
+│   ├── CONCEITOS.md            → glossário de consulta rápida (uso pessoal)
+│   └── PLANO_DE_TESTES*.md, ARCHITECTURE.md, REFERENCIA_COMANDOS.md
 ├── venv/                        → ambiente virtual (não vai para o GitHub)
 ├── start.sh                     → script para subir a API
+├── cypress.config.js
+├── package.json
 ├── .gitignore
 ├── requirements.txt             → dependências com versões travadas
-├── README.md
-├── GUIDE.md                     → diário técnico do projeto
-└── CONCEITOS.md                 → glossário de consulta rápida (uso pessoal)
+└── README.md
 ```
 
 ---
@@ -153,7 +202,11 @@ task_manager/
 | Models (Schema) | Valida o formato dos dados da API (Pydantic) |
 | Models (ORM) | Representa a tabela real no banco (SQLAlchemy) |
 
-**Front-end:** testes seguem o padrão Page Object Model (POM) com Cypress.
+**Front-end:** testes E2E com Cypress + Cucumber — cenários escritos em
+Gherkin/português (`.feature`), cada frase ligada a uma função JavaScript
+em `step_definitions/`. (O plano inicial previa Page Object Model puro;
+na prática, o preprocessador do Cucumber cobriu essa necessidade de
+organização de forma mais direta, então esse foi o padrão adotado.)
 
 **Banco de dados:** SQLite, acessado via SQLAlchemy (ORM). Pode ser inspecionado visualmente com o DB Browser for SQLite, abrindo `database/task_manager.db`.
 
@@ -170,10 +223,41 @@ task_manager/
 - [x] CRUD completo (GET, POST, PUT, PATCH, DELETE)
 - [x] Camada de Services (lógica de negócio fora das rotas)
 - [x] Validação cruzada via Swagger e Postman
-- [x] Testes automatizados com Pytest — 19 testes CRUD + 15 testes Auth
+- [x] Testes automatizados com Pytest — 36 testes (auth + CRUD de tarefas)
 - [x] Autenticação (JWT) — cadastro, login, proteção das rotas
-- [ ] Correção dos testes de tarefas (quebrados após proteção com JWT)
-- [ ] Etapa 2 — Front-end: Páginas + Testes (Cypress)
+- [x] Correção dos testes de tarefas (quebrados após proteção com JWT)
+- [x] Front-end — 3 páginas (login, cadastro, index) com estética
+      azul-acinzentada, integradas à API via `api.js`
+- [x] CORS configurado para integração front-end (porta 5500) + API
+      (porta 8000)
+- [x] Testes E2E com Cypress + Cucumber — 16 cenários (login, cadastro,
+      CRUD de tarefas)
+- [x] Bug real encontrado via teste automatizado (título vazio aceito
+      pela API) e corrigido em duas camadas (JS + Pydantic)
+- [x] Documentação de incidentes reais de Git (`HISTORICO_INCIDENTE_GIT.md`)
+- [x] Lições aprendidas registradas para o próximo projeto
+      (`LICOES_APRENDIDAS.md`)
+- [x] **Projeto encerrado** — pendências remanescentes avaliadas e
+      mantidas como decisões conscientes de escopo (ver seção abaixo)
+
+---
+
+## Decisões e limitações conhecidas
+
+Registradas conscientemente ao final do projeto — não são pendências
+esquecidas:
+
+- Não existe rota `GET /{tarefa_id}` — o front-end reaproveita os dados
+  já carregados pela listagem para a tela de edição.
+- `SECRET_KEY` do JWT está fixa no código (`auth_service.py`) — aceitável
+  para projeto local de portfólio; em produção real seria variável de
+  ambiente (ver `LICOES_APRENDIDAS.md`).
+- O CRUD de tarefas não é multiusuário de fato — qualquer usuário
+  autenticado acessa e edita as tarefas de todos.
+- 3 vulnerabilidades reportadas por `npm audit` (internas ao `mocha`,
+  dependência transitiva do Cypress) mantidas sem correção forçada —
+  risco de quebrar a ferramenta de teste maior que o benefício, para
+  uma dependência de desenvolvimento local.
 
 ---
 
@@ -188,6 +272,7 @@ task_manager/
 - npm: https://www.npmjs.com
 - ECMAScript: https://ecma-international.org
 - Cypress: https://www.cypress.io
+- Cucumber (Gherkin): https://cucumber.io/docs/gherkin
 - Pytest: https://docs.pytest.org
 - Postman: https://www.postman.com
 - Insomnia: https://insomnia.rest
